@@ -100,6 +100,54 @@ function tokenCssName(token: string): string {
   return namespaced.test(token) ? `--dsw-${token}` : `--dsw-alias-${token}`
 }
 
+/** Resolve any CSS colour to rgb components by letting the browser parse it. */
+function resolveColor(value: string): [number, number, number] | null {
+  const probe = document.createElement('span')
+  probe.style.color = value
+  probe.style.display = 'none'
+  document.body.appendChild(probe)
+  const computed = getComputedStyle(probe).color
+  probe.remove()
+  const match = /rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(computed)
+  if (match === null) return null
+  return [Number(match[1]), Number(match[2]), Number(match[3])]
+}
+
+function luminance([r, g, b]: [number, number, number]): number {
+  const channel = (c: number): number => {
+    const s = c / 255
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+  }
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+}
+
+function contrast(a: string, b: string): number | null {
+  const left = resolveColor(a)
+  const right = resolveColor(b)
+  if (left === null || right === null) return null
+  const [hi, lo] = [luminance(left), luminance(right)].sort((x, y) => y - x)
+  return (hi + 0.05) / (lo + 0.05)
+}
+
+/**
+ * Surfaces the shell pairs with a text colour. A skin that sets one half of a
+ * pair and not the other — a white button over white ink — is unreadable, and
+ * that is not something a designer should have to discover by looking.
+ */
+const CONTRAST_PAIRS: Array<[surface: string, text: string]> = [
+  ['alias-bg-base', 'alias-label-primary'],
+  ['alias-bg-layer-1', 'alias-label-primary'],
+  ['alias-bg-layer-2', 'alias-label-primary'],
+  ['alias-bg-layer-3', 'alias-label-primary'],
+  ['specific-bubble', 'alias-label-primary'],
+  ['specific-menu', 'alias-label-secondary'],
+  ['specific-input-major', 'alias-label-primary'],
+  ['alias-button-primary-fill', 'alias-label-primary-foreground'],
+]
+
+/** Minimum contrast below which the guard re-colours the text token. */
+const MIN_CONTRAST = 3
+
 export class SkinController {
   private snapshot: Snapshot = { status: 'idle', error: null, skins: [], prefs: readPrefs() }
   private listeners = new Set<() => void>()
@@ -285,6 +333,9 @@ export class SkinController {
     // ---- audio ----
     this.syncAudio(entry, prefs)
 
+    // ---- contrast guard ----
+    this.enforceContrast(scopes, colours)
+
     // ---- chrome backdrop ----
     // The shell's outer containers paint their own background. Class names are
     // build-hashed and change between releases, so instead of naming them we
@@ -314,6 +365,36 @@ export class SkinController {
       if (bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') continue
       node.style.setProperty('background-color', 'transparent', 'important')
       this.scopeVars.push([node, 'background-color'])
+    }
+  }
+
+  /**
+   * Keep text legible on the surfaces a skin re-colours. If a pair falls below
+   * MIN_CONTRAST, the text token is re-coloured to black or white — whichever
+   * reads better on that surface — and the skin's own value is overridden only
+   * for that token.
+   */
+  private enforceContrast(scopes: HTMLElement[], colours: Record<string, string>): void {
+    const probe = scopes[0] ?? document.body
+    const style = getComputedStyle(probe)
+    for (const [surface, text] of CONTRAST_PAIRS) {
+      const surfaceValue = style.getPropertyValue(`--dsw-${surface}`).trim()
+      const textValue = style.getPropertyValue(`--dsw-${text}`).trim()
+      if (surfaceValue === '' || textValue === '') continue
+      const ratio = contrast(surfaceValue, textValue)
+      if (ratio === null || ratio >= MIN_CONTRAST) continue
+      const surfaceRgb = resolveColor(surfaceValue)
+      if (surfaceRgb === null) continue
+      const replacement = luminance(surfaceRgb) > 0.45 ? '#0a0a0a' : '#ffffff'
+      const better = contrast(surfaceValue, replacement) ?? 0
+      if (better <= ratio) continue
+      for (const scope of scopes) this.setScopeVar(scope, `--dsw-${text}`, replacement)
+      // A skin that set the text token explicitly is told, rather than silently
+      // corrected, so the fix can be made at the source.
+      const key = text.replace(/^alias-/, '')
+      if (colours[key] !== undefined) {
+        console.warn(`dsh-skin: "${key}" had ${ratio.toFixed(1)}:1 on --dsw-${surface}; using ${replacement}`)
+      }
     }
   }
 

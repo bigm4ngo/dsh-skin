@@ -229,7 +229,35 @@ empty-state hero image (1600×900). Neither is required for v1.
 
 ---
 
-## 5. Audio, and what a video background can carry
+## 5. Which token paints what
+
+If a surface looks grey and you want to change it, this is the map. Names are written as they go in
+`colors` — the plugin adds the namespace when it is missing.
+
+| What you see | Token | Confidence |
+|---|---|---|
+| Your own message bubble | `specific-bubble` | confirmed against the shell's bubble rule |
+| Popup / dropdown menu | `specific-menu`, `menu-surface-fill` | from the stylesheet |
+| Text inputs, the composer field | `bg-layer-3` | from the stylesheet |
+| Input chips and image previews | `specific-input-major` | confirmed |
+| Hovered and selected rows (settings nav, sidebar) | `interactive-bg-hover`, `interactive-bg-active` | from the stylesheet |
+| Toolbar and ghost buttons ("New Session") | `button-tool-bar-fill`, `button-tool-bar-hover`, `button-ghost-active-fill` | inferred — check with the inspector |
+| Primary buttons (Send, Sign in) | `button-primary-fill`, `button-primary-hover` + `label-primary-foreground` | confirmed |
+| Cards and panels | `bg-layer-1` … `bg-layer-4` | confirmed |
+
+**Making text survive a custom surface.** The plugin checks a set of surface/text pairs after applying
+a skin. If a pair drops below 3:1 contrast — pale ink on a white button is the usual way this happens
+— it re-colours the *text* token to black or white, whichever reads better, and logs a warning to the
+console when the skin had set that token itself. So a skin can set a bold surface without also
+hand-pairing every foreground, but the warning is there to be fixed at the source.
+
+**Finding a token that isn't in this table.** Open the browser's developer tools, pick the element,
+and look at Computed styles, filtered to `--dsw`. The variable whose value matches the colour you see
+is the one to set. That is exactly how every row above was found.
+
+
+
+## 6. Audio, and what a video background can carry
 
 A video background *may* have an audio track. Two facts decide how it is used:
 
@@ -249,7 +277,7 @@ Delivered audio rules:
 
 ---
 
-## 6. Fonts
+## 7. Fonts
 
 - Use a family the browser already has (`Inter`, `Georgia`, `system-ui`, `ui-monospace`).
 - To ship a font, place the file in the skin folder and name the file in `ui.font`. Accepted:
@@ -260,7 +288,7 @@ Delivered audio rules:
 
 ---
 
-## 7. Validation
+## 8. Validation
 
 A skin is checked on import and on load. A skin that fails is **not applied**; the previous skin
 stays and the problem is named in one line:
@@ -280,7 +308,7 @@ Warnings never block; errors do.
 
 ---
 
-## 8. Checklist for a designer
+## 9. Checklist for a designer
 
 1. Folder named after the skin, all lowercase with hyphens.
 2. `skin.json` with at least `name`.
@@ -296,7 +324,7 @@ Warnings never block; errors do.
 
 ---
 
-## 9. Worked example — a minimal image skin
+## 10. Worked example — a minimal image skin
 
 `skin.json`:
 ```json
@@ -314,7 +342,7 @@ Folder contents: `skin.json` + `background.jpg`. Nothing else needed.
 
 ---
 
-## 10. Worked example — a video skin with branding
+## 11. Worked example — a video skin with branding
 ```json
 {
   "name": "Harbour Night",
@@ -343,7 +371,7 @@ Folder contents: `skin.json` + `background.jpg`. Nothing else needed.
 
 ---
 
-## 11. What appears in Settings → Skins
+## 12. What appears in Settings → Skins
 
 The **Skins** page (Settings → Skins) is deliberately small. Everything in `skin.json` is optional, and only these controls
 are live:
