@@ -186,6 +186,12 @@ Depth (accepts a full shadow value, not just a colour):
 Shapes:
 - `radius-xs`, `radius-sm`, `radius-md`, `radius-lg`, `radius-xl`, `radius-panel`.
 
+Outside the `alias` namespace — write the full name, the plugin passes it through:
+- `specific-bubble` — the message bubble behind your own turns.
+- `specific-menu` — the popup menu surface.
+- `specific-input-major` — the composer field.
+- `elevation-panel`, `elevation-prominent`, `elevation-soft` — shadows (full shadow value, not just a colour).
+
 The full token list shipped by this harness has ~98 `--dsw-alias-*` / `--dsw-elevation-*` /
 `--dsw-radius-*` / `--dsw-font-*` entries. Anything not in the safe set above still works if you
 name it exactly; the safe set is what a designer can change without breaking contrast or

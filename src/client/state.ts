@@ -86,6 +86,20 @@ function isDark(): boolean {
   return window.matchMedia('(prefers-color-scheme: dark)').matches
 }
 
+/**
+ * Turn a token name from a skin into the custom property the shell reads.
+ *
+ * Most tokens live in the `alias` namespace, so `bg-layer-1` is shorthand for
+ * `--dsw-alias-bg-layer-1`. The shell also paints a few surfaces from tokens
+ * outside it — `specific-bubble` (the message bubble), `specific-menu`,
+ * `specific-input-major`, `radius-*`, `font-*` — so a name that already carries
+ * its namespace is passed through instead of being double-prefixed.
+ */
+function tokenCssName(token: string): string {
+  const namespaced = /^(alias|specific|static|radius|font|elevation|focus|mask|menu|hovercard|toast|tooltip)-/
+  return namespaced.test(token) ? `--dsw-${token}` : `--dsw-alias-${token}`
+}
+
 export class SkinController {
   private snapshot: Snapshot = { status: 'idle', error: null, skins: [], prefs: readPrefs() }
   private listeners = new Set<() => void>()
@@ -214,7 +228,7 @@ export class SkinController {
 
     for (const scope of scopes) {
       for (const [token, value] of Object.entries(colours)) {
-        this.setScopeVar(scope, `--dsw-alias-${token}`, value)
+        this.setScopeVar(scope, tokenCssName(token), value)
       }
       // Every surface token gets the transparency treatment, not just
       // bg-layer-1..4: the shell paints sidebars and rails from bg-base and

@@ -69,8 +69,8 @@ instead of being applied silently.
 ## What you can change
 
 - **Background** — image or video; `cover` / `contain` / `fill` / `repeat`; position; dimming; blur.
-- **Surfaces** — panel opacity, backdrop blur, corner radius, and any `--dsw-alias-*` colour token,
-  separately for light and dark mode.
+- **Surfaces** — panel opacity, backdrop blur, corner radius, the message bubble, the composer field,
+  the popup menu, and any `--dsw-*` colour token, separately for light and dark mode.
 - **Logo and wordmark** — your own SVG/PNG/WebP replaces the product mark; a plain string replaces the
   wordmark.
 - **Ambient audio** — a looping file, or the video's own track; muted by default, with a volume
