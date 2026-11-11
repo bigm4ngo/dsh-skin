@@ -1,0 +1,5 @@
+# dsh-skin bundle layer: mount the host row. The browser half loads from
+# `dsh.client` in package.json once the row is active.
+- insert:
+    - id: dsh-skin
+      name: dsh-skin

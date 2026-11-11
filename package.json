@@ -1,0 +1,51 @@
+{
+  "name": "dsh-skin",
+  "version": "0.1.0",
+  "description": "Folder-based skins for DeepSeek Harness Web: image/video backgrounds, token colours, logo, ambient audio.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "lib/client.js.map",
+    "cordis.patch.yml",
+    "SKIN-FORMAT.md",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-client-locale": ">=0.2.2-rc.1 <0.3.0-0",
+    "@deepseek-ai/dsh-client-ui-settings": ">=0.2.2-rc.1 <0.3.0-0",
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "~18.3.1",
+    "esbuild": "^0.25.0",
+    "react": "^18.2.0",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": ">=24.9.0"
+  },
+  "license": "MIT"
+}
