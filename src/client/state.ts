@@ -270,6 +270,32 @@ export class SkinController {
 
     // ---- audio ----
     this.syncAudio(entry, prefs)
+
+    // ---- chrome backdrop ----
+    // The shell's outer containers paint their own background. Class names are
+    // build-hashed and change between releases, so instead of naming them we
+    // walk up from the sidebar and clear every ancestor that paints a colour:
+    // those are chrome, never content cards.
+    this.clearChromeBackdrop()
+  }
+
+  /**
+   * Make the shell's own containers transparent so the background layer shows.
+   * Only ancestors of the sidebar are touched, so panels and cards keep their
+   * translucent treatment.
+   */
+  private clearChromeBackdrop(): void {
+    const vw = window.innerWidth * window.innerHeight
+    const candidates = document.querySelectorAll<HTMLElement>('#root, #root > *, #root > * > *, body > div')
+    for (const node of candidates) {
+      const rect = node.getBoundingClientRect()
+      // Only full-window containers are chrome; cards are smaller.
+      if (rect.width * rect.height < vw * 0.8) continue
+      const bg = getComputedStyle(node).backgroundColor
+      if (bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') continue
+      node.style.setProperty('background-color', 'transparent', 'important')
+      this.scopeVars.push([node, 'background-color'])
+    }
   }
 
   /**

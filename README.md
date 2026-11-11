@@ -1,101 +1,118 @@
 # dsh-skin
 
-Folder-based skins for **DeepSeek Harness Web**: image or video backgrounds, translucency, colour
-tokens, custom logo and wordmark, ambient audio.
+**English** · [简体中文](README.zh.md)
 
-A skin is a folder. Drop it in, pick it in **Settings → Skins**, done. No build step, no upload
-dialog, nothing leaves the machine.
+Skins for **DeepSeek Harness Web** — the kind where you point it at a wallpaper and the whole
+interface sits on top of it.
 
-![Skins settings](screenshots/settings.png)
+A skin is a folder. Drop it in `~/.config/dsh/skins/`, refresh, pick it in **Settings → Skins**.
+Image or video background, translucent panels, your own colours, your own logo and wordmark, optional
+ambient audio. No build step, no upload dialog, nothing leaves the machine.
+
+![Skins settings page](screenshots/settings.png)
 
 ## Requirements
 
-- dsh `0.2.2-rc.x` (the client and settings peers are pinned to that range).
-- The **web** profile (`dsh web`). The desktop app uses a different client carrier and is not
-  supported yet.
+- dsh **0.2.2-rc.x**. The client peers are pinned to that range; the plugin manager refuses anything
+  outside it rather than half-loading.
+- The **web** profile (`dsh web`). The desktop app loads its client differently and is not supported
+  yet.
 
 ## Install
 
 ```bash
-# from a local checkout
+# from a checkout
 dsh plugin --profile web add /path/to/dsh-skin
 
-# or straight from the repository
-dsh plugin --profile web add github:YOURNAME/dsh-skin
+# or from GitHub
+dsh plugin --profile web add github:bigm4ngo/dsh-skin
 ```
 
-Restart `dsh web`. The plugin's host half registers `/dsh-skin` and serves the skins directory.
+Restart `dsh web` and open **Settings → Skins**.
 
-If your dsh is not `0.2.2-rc.x`, the compatibility gate refuses the plugin; adjust the peer ranges in
-`package.json` or install with an exemption.
+Nothing is installed system-wide: `dsh plugin` puts the package in the profile's own `node_modules`,
+and `lib/` ships pre-built, so your machine needs no compiler or build step.
 
-## Add a skin
+## Make a skin
 
-```bash
-mkdir -p ~/.config/dsh/skins
-cp -r my-skin ~/.config/dsh/skins/
+The full format — every field, the colour tokens, the rules for drawing a logo — is in
+**[SKIN-FORMAT.md](SKIN-FORMAT.md)**. It is written to be handed to a designer, not only to a
+developer.
+
+The short version:
+
 ```
-
-Then reload the page and choose it under **Settings → Skins**.
-
-```
-~/.config/dsh/skins/my-skin/
+~/.config/dsh/skins/harbour/
 ├── skin.json
-├── logo.svg
-├── background.jpg     (or .mp4 / .webm)
-└── ambient.mp3        (optional)
+├── background.jpg      (or .mp4 / .webm)
+├── logo.svg            (optional)
+└── ambient.mp3         (optional)
 ```
-
-Full format, field by field, with the colour tokens and the drawing rules for the logo:
-**[SKIN-FORMAT.md](SKIN-FORMAT.md)** — written to be handed to a designer.
-
-Minimal working skin:
 
 ```json
 {
-  "name": "Aegean",
-  "background": { "file": "background.jpg", "dim": 0.55 },
-  "colors": { "dark": { "bg-layer-1": "#0d1a2b", "brand-primary": "#5fc8ff" } }
+  "name": "Harbour",
+  "background": { "file": "background.jpg", "dim": 0.5 },
+  "colors": {
+    "dark":  { "bg-layer-1": "#0b1524", "brand-primary": "#7ad1ff" },
+    "light": { "bg-layer-1": "#ffffff", "brand-primary": "#1b6f9e" }
+  }
 }
 ```
 
+Reload the page and it appears in the list. If something is wrong — a missing file, a value that
+isn't a colour, a 300 MB video — the skin is refused and the reason is printed under the dropdown
+instead of being applied silently.
+
+![Skin applied](screenshots/applied.png)
+
 ## What you can change
 
-- **Background** — image or video, called `cover` / `contain` / `fill` / `repeat`, positioned, dimmed
-  and blurred.
-- **Surfaces** — panel opacity, backdrop blur, corner radius. Every `--dsw-alias-bg-*`,
-  `label-*`, `border-*`, `button-*`, `state-*` token can be overridden per light/dark mode.
-- **Logo and wordmark** — replace the mark with your own SVG/PNG/WebP and rename the product.
-- **Ambient audio** — a looping file, or the video's own track, muted by default with a volume
+- **Background** — image or video; `cover` / `contain` / `fill` / `repeat`; position; dimming; blur.
+- **Surfaces** — panel opacity, backdrop blur, corner radius, and any `--dsw-alias-*` colour token,
+  separately for light and dark mode.
+- **Logo and wordmark** — your own SVG/PNG/WebP replaces the product mark; a plain string replaces the
+  wordmark.
+- **Ambient audio** — a looping file, or the video's own track; muted by default, with a volume
   slider.
 
-Five controls stay live in the UI (dim, panel opacity, blur, radius, ambient volume) and override the
-skin's own values per browser. Everything else is edited in `skin.json`.
+Five of those stay adjustable in the UI (dim, panel opacity, blur, radius, ambient volume) and are
+remembered per browser. Everything else comes from `skin.json`, so a designer can ship a look without
+the user having to fiddle.
 
-## Safety
+## Notes and limits
 
-A skin is **data plus media**: no CSS, no scripts, no HTML. Unknown fields are ignored rather than
-executed. The folder is served by the plugin's own host route behind the same authenticated session
-as the GUI, and nothing is uploaded anywhere.
+- **Video and audio playback are wired but unverified here.** The development machine's headless
+  browser has no media decoder, so frames never render in tests. The element, the byte-range serving
+  and the mute/volume path are all in place — check it in a normal browser before trusting it.
+- **Branding is applied to the existing brand seat**, not through the sidebar's brand slots: on
+  0.2.2-rc.1 those slots do not accept an out-of-tree occupant. The shell's mark is hidden and the
+  skin's logo is painted into the same box, so layout is unchanged.
+- Class names in the shell are build-hashed, so the plugin finds the outer containers by geometry and
+  by stable class suffixes rather than exact selectors. A future dsh release may move them; if a
+  wallpaper stops showing through, that is where to look.
+- One skin is active at a time. Switching re-reads the manifest, not the media.
 
-## Known limitations
+## How it is put together
 
-- Video and audio playback are wired through a `<video>`/`<audio>` element with HTTP range support,
-  but were not verified end to end in the development environment (its headless browser has no media
-  decoder). Verify on a normal desktop browser.
-- Logos and the wordmark are applied to the existing brand seat by hiding the shell's own mark and
-  painting the skin's assets in the same box, because the sidebar brand slots do not accept an
-  out-of-tree occupant on 0.2.2-rc.1.
-- One skin directory is read at a time; switching skins re-reads the manifest but not the media.
+Two halves, both small:
+
+- **Host** (`src/index.ts`) registers `/dsh-skin` on the web server and serves the skins directory —
+  listings at `/dsh-skin/index.json`, media at `/dsh-skin/<skin>/<file>` with HTTP range support so
+  video can stream. It validates each manifest on read.
+- **Browser** (`src/client/`) fetches the listing, paints the background layer, overrides the design
+  tokens at the element that declares them, and registers the Skins settings page.
+
+A skin is data plus media: no CSS, no scripts, no HTML. Unknown fields are ignored, not executed.
 
 ## Development
 
 ```bash
 pnpm install
-node scripts/build.mjs        # writes lib/index.js (host) and lib/client.js (browser)
+node scripts/build.mjs     # lib/index.js (host) + lib/client.js (browser)
 ```
 
-`lib/` is committed, so installing elsewhere needs no build.
+`lib/` is committed, so installing from a fresh clone needs no build.
 
 ## Licence
 
