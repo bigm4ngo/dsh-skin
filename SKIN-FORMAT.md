@@ -211,6 +211,9 @@ product wordmark beside it. The mark appears at two sizes: **26 px** (default, s
   recognisable, it will not read in the sidebar.
 - **Both modes:** must work on a near-black and a near-white surface. Prefer a shape that carries
   itself, optionally with `currentColor` in the SVG so it inherits text colour.
+- **It is painted as a mask:** the artwork's alpha channel is kept and it is filled with the sidebar's
+  text colour, so the mark and the wordmark always match in both modes. Draw a single-colour
+  silhouette — a full-colour logo will render flat.
 - **No baked text.** Any lettering belongs in `branding.name`, not in the image.
 - **Limit:** 512 KB. SVG must not contain `<script>`, event attributes (`on*`), or external
   references — the loader strips them, and a stripped-SVG warning is shown.

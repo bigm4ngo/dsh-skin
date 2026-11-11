@@ -287,10 +287,15 @@ export class SkinController {
   private clearChromeBackdrop(): void {
     const vw = window.innerWidth * window.innerHeight
     const candidates = document.querySelectorAll<HTMLElement>('#root, #root > *, #root > * > *, body > div')
+    const vh = window.innerHeight
     for (const node of candidates) {
       const rect = node.getBoundingClientRect()
-      // Only full-window containers are chrome; cards are smaller.
-      if (rect.width * rect.height < vw * 0.8) continue
+      // Only chrome is cleared: a full-window container, or a tall narrow rail.
+      // The width cap matters — a full-height *content* column must keep its
+      // surface, or text ends up sitting directly on the wallpaper.
+      const fullWindow = rect.width * rect.height >= vw * 0.8
+      const fullColumn = rect.height >= vh * 0.9 && rect.width <= window.innerWidth * 0.4
+      if (!fullWindow && !fullColumn) continue
       const bg = getComputedStyle(node).backgroundColor
       if (bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') continue
       node.style.setProperty('background-color', 'transparent', 'important')

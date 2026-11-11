@@ -42,8 +42,24 @@ body[data-dsh-skin='on'] #root > * {
  * cannot reach them. These rules name the surfaces by their stable class
  * suffix, which survives the build-time hash prefix.
  */
-body[data-dsh-skin='on'] [class*='sidebarCol'],
 body[data-dsh-skin='on'] [class*='_frame'] {
+  background-color: transparent !important;
+}
+
+/* The sidebar is a content surface, not a window edge: give it the same
+   translucent tint as cards so the wallpaper reads through it and the rail
+   stops looking like a flat painted slab. */
+body[data-dsh-skin='on'] [class*='sidebarCol'] {
+  background-color: color-mix(
+    in srgb,
+    var(--dsh-skin-panel-tint, #0b1524) calc(var(--dsh-skin-panel-alpha, 0.72) * 100%),
+    transparent
+  ) !important;
+}
+
+/* The sidebar column's own wrapper paints an opaque literal; a column is
+   chrome, never a card. */
+body[data-dsh-skin='on'] [class*='sidebarCol'] [class*='_root'] {
   background-color: transparent !important;
 }
 
@@ -75,16 +91,24 @@ body[data-dsh-skin='on'] [class*='brandMark'] > svg {
   display: none !important;
 }
 
+/* A background-image cannot inherit currentColor, so the mark is painted as
+   a mask instead: the artwork's alpha channel is kept and the fill is the
+   sidebar's own text colour, which matches the wordmark in both themes. */
 body[data-dsh-skin='on'] [class*='railMark']::before,
 body[data-dsh-skin='on'] [class*='brandMark']::before {
   content: '';
   display: block;
   width: var(--dsh-skin-mark-size, 26px);
   height: var(--dsh-skin-mark-size, 26px);
-  background-image: var(--dsh-skin-mark-url);
-  background-size: contain;
-  background-position: center;
-  background-repeat: no-repeat;
+  background-color: var(--dsw-alias-label-primary);
+  -webkit-mask-image: var(--dsh-skin-mark-url);
+  mask-image: var(--dsh-skin-mark-url);
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
 /* The wordmark is an SVG, so hiding the text node is not enough: the svg is
