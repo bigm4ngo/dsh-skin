@@ -2,6 +2,22 @@
   "name": "dsh-skin",
   "version": "0.1.0",
   "description": "Folder-based skins for DeepSeek Harness Web: image/video backgrounds, token colours, logo, ambient audio.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "theme",
+    "skin",
+    "wallpaper"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bigm4ngo/dsh-skin.git"
+  },
+  "homepage": "https://github.com/bigm4ngo/dsh-skin#readme",
+  "bugs": {
+    "url": "https://github.com/bigm4ngo/dsh-skin/issues"
+  },
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -16,7 +32,9 @@
     "lib/client.js.map",
     "cordis.patch.yml",
     "SKIN-FORMAT.md",
-    "README.md"
+    "README.md",
+    "README.zh.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "node scripts/build.mjs"
