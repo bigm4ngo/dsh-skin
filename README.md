@@ -84,16 +84,12 @@ the user having to fiddle.
 
 ## Notes and limits
 
-- **Video and audio playback are wired but unverified here.** The development machine's headless
-  browser has no media decoder, so frames never render in tests. The element, the byte-range serving
-  and the mute/volume path are all in place — check it in a normal browser before trusting it.
 - **Branding is applied to the existing brand seat**, not through the sidebar's brand slots: on
   0.2.2-rc.1 those slots do not accept an out-of-tree occupant. The shell's mark is hidden and the
   skin's logo is painted into the same box, so layout is unchanged.
 - Class names in the shell are build-hashed, so the plugin finds the outer containers by geometry and
   by stable class suffixes rather than exact selectors. A future dsh release may move them; if a
   wallpaper stops showing through, that is where to look.
-- One skin is active at a time. Switching re-reads the manifest, not the media.
 
 ## How it is put together
 
