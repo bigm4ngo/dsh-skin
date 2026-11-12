@@ -1,3 +1,6 @@
 node_modules/
 *.log
 .DS_Store
+
+# local verification rig (scripts, throw-away DSH profile, artifacts); not shipped
+verify/
