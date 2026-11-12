@@ -124,6 +124,10 @@ file. Prefer 1920×1080 or 2560×1440; a 16:9 source crops cleanly at every wind
 ### `branding`
 - `mark` — the logo file. See §4 for the drawing rules.
 - `markSize` — rendered height in px, `16`–`48`. Default `26`.
+- `hideMark` — `true` removes the shell's product mark even when `mark` is absent. Use it when the
+  skin name should stand alone.
+- `deepDivingMark` — optional single-colour artwork replacing the whale glyph on the running
+  “Deep diving” status line. Masked like `mark`, so it inherits the accent colour. SVG/PNG/WebP.
 - `name` — the product name shown beside the mark. Plain text, any length.
 - `hideName` — `true` renders only the mark.
 
@@ -146,6 +150,13 @@ preference in Settings decides which table applies, and only the System preferen
 
 Accepted colour syntax: `#rgb`, `#rrggbb`, `#rrggbbaa`, `rgb()`, `hsl()`, or `transparent`.
 
+**The accent drives the controls, too.** Set `brand-primary` once and the plugin derives the rest of
+the app's accent surfaces from it unless you override them per token: the active Chat/Trajectory tab
+and its underline (`state-business-primary`), the active workspace folder glyph
+(`state-business-primary`), the composer's send button (`button-info-fill` / `button-info-hover`) and
+the running “Deep diving” line (`label-deep-diving` / `label-deep-diving-shimmer`). The send glyph
+switches between white and near-black automatically so it stays readable on your accent.
+
 #### The tokens worth knowing (safe set)
 
 Surfaces — this is what makes panels and windows readable over a background:
@@ -158,6 +169,7 @@ Surfaces — this is what makes panels and windows readable over a background:
 Text:
 - `label-primary`, `label-secondary`, `label-tertiary`, `label-caption`, `label-dimmed`.
 - `label-primary-foreground` — text on an inverted (filled) surface.
+- `label-deep-diving`, `label-deep-diving-shimmer` — the running “Deep diving” status line.
 - `link`.
 
 Lines and separation:
@@ -168,6 +180,7 @@ Interaction:
 - `brand-primary` — accent, selection, primary actions.
 - `button-primary-fill`, `button-primary-hover`.
 - `button-elevated-fill`, `button-floating-hover` — the New Session button (rest / hover).
+- `button-info-fill`, `button-info-hover` — the composer's send button.
 - `button-ghost-active-fill`, `button-ghost-active-border`.
 - `button-tool-bar-fill`, `button-tool-bar-hover`.
 - `interactive-bg-hover`, `interactive-bg-active`.
@@ -250,6 +263,10 @@ If a surface looks grey and you want to change it, this is the map. Names are wr
 | Toolbar and ghost buttons ("New Session") | `button-tool-bar-fill`, `button-tool-bar-hover`, `button-ghost-active-fill` | inferred — check with the inspector |
 | New Session button (rest / hover) | `button-elevated-fill`, `button-floating-hover` + `label-primary` | confirmed against the shell's rule (macOS paints this button from literals, so the token only applies elsewhere) |
 | Composer attach / tool buttons ("+") | `specific-selector` + `label-primary` | confirmed against the shell's rule (hover uses `interactive-bg-hover-solid`) |
+| Chat / Trajectory tabs (active tab + underline) | `state-business-primary` (rest: `label-tertiary`) | confirmed against the shell's tab rule; derived from `brand-primary` by default |
+| Active workspace folder glyph | `state-business-primary` | confirmed; derived from `brand-primary` by default |
+| Send button | `button-info-fill` / `button-info-hover` | confirmed; derived from `brand-primary` by default, glyph foreground chosen for contrast |
+| “Deep diving” status line | `label-deep-diving`, `label-deep-diving-shimmer`; glyph via `branding.deepDivingMark` | confirmed; derived from `brand-primary` by default |
 | Primary buttons (Send, Sign in) | `button-primary-fill`, `button-primary-hover` + `label-primary-foreground` | confirmed |
 | Cards and panels | `bg-layer-1` … `bg-layer-4` | confirmed |
 

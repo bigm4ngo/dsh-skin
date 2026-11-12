@@ -72,7 +72,10 @@ instead of being applied silently.
 - **Surfaces** — panel opacity, backdrop blur, corner radius, the message bubble, the composer field,
   the popup menu, and any `--dsw-*` colour token, separately for light and dark mode.
 - **Logo and wordmark** — your own SVG/PNG/WebP replaces the product mark; a plain string replaces the
-  wordmark.
+  wordmark. `hideMark` removes the product mark without a replacement, and `deepDivingMark` swaps the
+  whale on the running status line.
+- **Accent-driven controls** — one `brand-primary` also themes the Chat/Trajectory tabs, the active
+  workspace glyph, the send button and the “Deep diving” line, with readable send-button contrast.
 - **Ambient audio** — a looping file, or the video's own track; muted by default, with a volume
   slider.
 - **Favourites** — star the skins you keep coming back to; pinned skins move to the top of the

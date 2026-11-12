@@ -84,18 +84,23 @@ body[data-dsh-skin='on'] [role='listbox'] {
 }
 
 /* ---- branding ----
- * The mark seat keeps its box; the shell's own svg is hidden and the skin's
- * logo is painted into the same square, so layout is unchanged. */
-body[data-dsh-skin='on'] [class*='railMark'] > svg,
-body[data-dsh-skin='on'] [class*='brandMark'] > svg {
+ * The mark seat keeps its box; the shell's own mark is hidden and the skin's
+ * logo is painted into the same square, so layout is unchanged. The shell may
+ * nest its mark inside a build-version wrapper, so hide any descendant rather
+ * than only a direct child. hideMark removes the shell mark without a
+ * replacement logo. */
+body[data-dsh-skin-mark='skin'] [class*='railMark'] svg,
+body[data-dsh-skin-mark='skin'] [class*='brandMark'] svg,
+body[data-dsh-skin-mark='hidden'] [class*='railMark'] svg,
+body[data-dsh-skin-mark='hidden'] [class*='brandMark'] svg {
   display: none !important;
 }
 
 /* A background-image cannot inherit currentColor, so the mark is painted as
    a mask instead: the artwork's alpha channel is kept and the fill is the
    sidebar's own text colour, which matches the wordmark in both themes. */
-body[data-dsh-skin='on'] [class*='railMark']::before,
-body[data-dsh-skin='on'] [class*='brandMark']::before {
+body[data-dsh-skin-mark='skin'] [class*='railMark']::before,
+body[data-dsh-skin-mark='skin'] [class*='brandMark']::before {
   content: '';
   display: block;
   width: var(--dsh-skin-mark-size, 26px);
@@ -123,6 +128,32 @@ body[data-dsh-skin='on'] [class*='brandName']::after {
   letter-spacing: .04em;
   color: var(--dsw-alias-label-primary);
   white-space: nowrap;
+}
+
+/* ---- accent-driven controls ----
+ * The composer's send button paints its glyph from a literal #fff; the skin
+ * sets a computed foreground for the accent fill it ends up with. The running
+ * "deep diving" line uses a fixed whale glyph that a skin can replace with its
+ * own single-colour mark. */
+body[data-dsh-skin='on'] [class*='_trailing'] > button[class*='_primary'] {
+  color: var(--dsh-skin-send-foreground, #fff) !important;
+}
+body[data-dsh-skin-running='on'] [class*='_runningIcon'] > * {
+  display: none !important;
+}
+body[data-dsh-skin-running='on'] [class*='_runningIcon']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: var(--dsw-alias-label-deep-diving, currentColor);
+  -webkit-mask-image: var(--dsh-skin-running-url);
+  mask-image: var(--dsh-skin-running-url);
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
 /* ---- settings section ---- */

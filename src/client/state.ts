@@ -25,7 +25,16 @@ export interface SkinManifest {
     fadeMs?: number
     muteWhenUnfocused?: boolean
   }
-  branding?: { mark?: string; markSize?: number; name?: string; hideName?: boolean }
+  branding?: {
+    mark?: string
+    markSize?: number
+    /** Hide the shell's product mark even when `mark` is absent. */
+    hideMark?: boolean
+    /** Single-colour artwork replacing the running "deep diving" whale glyph. */
+    deepDivingMark?: string
+    name?: string
+    hideName?: boolean
+  }
   ui?: { panelOpacity?: number; panelBlur?: number; radius?: number; font?: string; codeFont?: string }
   colors?: { dark?: Record<string, string>; light?: Record<string, string> }
 }
@@ -147,6 +156,15 @@ function isDark(): boolean {
 function tokenCssName(token: string): string {
   const namespaced = /^(alias|specific|static|radius|font|elevation|focus|mask|menu|hovercard|toast|tooltip)-/
   return namespaced.test(token) ? `--dsw-${token}` : `--dsw-alias-${token}`
+}
+
+/**
+ * A colour the skin chose for the active mode, under either the short token
+ * name (`state-business-primary`) or its namespace-qualified form
+ * (`alias-state-business-primary`). `undefined` means the skin did not set it.
+ */
+function skinColour(colours: Record<string, string>, token: string): string | undefined {
+  return colours[token] ?? colours[`alias-${token}`]
 }
 
 /** Resolve any CSS colour to rgb components by letting the browser parse it. */
@@ -340,6 +358,8 @@ export class SkinController {
 
     if (entry === null || (entry.error !== undefined && entry.error !== null)) {
       document.body.dataset.dshSkin = 'off'
+      delete document.body.dataset.dshSkinMark
+      delete document.body.dataset.dshSkinRunning
       return
     }
 
@@ -393,6 +413,39 @@ export class SkinController {
       }
     }
 
+    // ---- accent-driven controls ----
+    // DSH paints the active tab, the active workspace glyph, the composer's
+    // send button and the running-status line from fixed brand tokens that are
+    // separate from `brand-primary`. A skin that names an accent should own
+    // those controls too: derive each token from `brand-primary` unless the
+    // skin set that specific token itself.
+    const accent = skinColour(colours, 'brand-primary')
+    if (accent !== undefined) {
+      const derived: Array<[property: string, token: string, value: string]> = [
+        ['--dsw-alias-state-business-primary', 'state-business-primary', accent],
+        ['--dsw-alias-button-info-fill', 'button-info-fill', accent],
+        ['--dsw-alias-button-info-hover', 'button-info-hover',
+          `color-mix(in srgb, ${accent} 84%, ${mode === 'dark' ? '#ffffff' : '#000000'})`],
+        ['--dsw-alias-label-deep-diving', 'label-deep-diving', accent],
+        ['--dsw-alias-label-deep-diving-shimmer', 'label-deep-diving-shimmer',
+          `color-mix(in srgb, ${accent} 45%, transparent)`],
+      ]
+      for (const scope of scopes) {
+        for (const [property, token, value] of derived) {
+          if (skinColour(colours, token) !== undefined) continue
+          this.setScopeVar(scope, property, value)
+        }
+      }
+    }
+
+    // The send glyph is painted from a literal `#fff`, so expose a readable
+    // foreground for the fill the skin ended up with.
+    const sendFill = skinColour(colours, 'button-info-fill') ?? accent
+    if (sendFill !== undefined) {
+      const onWhite = contrast(sendFill, '#ffffff')
+      this.setVar('--dsh-skin-send-foreground', onWhite !== null && onWhite >= MIN_CONTRAST ? '#ffffff' : '#0a0a0a')
+    }
+
     // ---- radii ----
     const radius = prefs.radius
     for (const token of ['radius-xs', 'radius-sm', 'radius-md', 'radius-lg', 'radius-xl', 'radius-panel']) {
@@ -415,12 +468,27 @@ export class SkinController {
     // The sidebar brand slots are owner-declared and do not accept an
     // out-of-tree occupant here, so branding is applied to the existing seat:
     // the shell's own mark is hidden and the skin's logo is painted in the
-    // same box, sized by the manifest.
+    // same box, sized by the manifest. `hideMark` removes the product mark even
+    // when the skin has no logo of its own.
     const branding = manifest.branding
-    if (branding?.mark !== undefined && branding.mark !== '') {
-      const url = `${ROUTE}/${encodeURIComponent(entry.id)}/${branding.mark.split('/').map(encodeURIComponent).join('/')}`
+    const markFile = branding?.mark !== undefined && branding.mark !== '' ? branding.mark : null
+    if (markFile !== null) {
+      const url = `${ROUTE}/${encodeURIComponent(entry.id)}/${markFile.split('/').map(encodeURIComponent).join('/')}`
       this.setVar('--dsh-skin-mark-url', `url("${url}")`)
-      this.setVar('--dsh-skin-mark-size', `${branding.markSize ?? 26}px`)
+      this.setVar('--dsh-skin-mark-size', `${branding?.markSize ?? 26}px`)
+      document.body.dataset.dshSkinMark = 'skin'
+    } else if (branding?.hideMark === true) {
+      document.body.dataset.dshSkinMark = 'hidden'
+    } else {
+      delete document.body.dataset.dshSkinMark
+    }
+    const runningFile = branding?.deepDivingMark !== undefined && branding.deepDivingMark !== '' ? branding.deepDivingMark : null
+    if (runningFile !== null) {
+      const url = `${ROUTE}/${encodeURIComponent(entry.id)}/${runningFile.split('/').map(encodeURIComponent).join('/')}`
+      this.setVar('--dsh-skin-running-url', `url("${url}")`)
+      document.body.dataset.dshSkinRunning = 'on'
+    } else {
+      delete document.body.dataset.dshSkinRunning
     }
     if (branding?.name !== undefined && branding.name !== '') {
       this.setVar('--dsh-skin-name', `"${branding.name.replace(/"/g, '\\"')}"`)

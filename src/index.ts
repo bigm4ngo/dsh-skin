@@ -121,6 +121,11 @@ async function validate(
     }
   }
 
+  if (typeof branding.deepDivingMark === 'string' && branding.deepDivingMark !== '') {
+    const problem = await checkFile(dir, branding.deepDivingMark, LOGO, 'logo')
+    if (problem !== null) return { error: problem, warnings }
+  }
+
   const ui = (manifest.ui ?? {}) as Record<string, unknown>
   if (typeof ui.font === 'string' && FONT.includes(extname(ui.font).toLowerCase())) {
     warnings.push(`font "${ui.font}" needs a licence file next to it`)
