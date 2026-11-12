@@ -75,6 +75,8 @@ instead of being applied silently.
   wordmark.
 - **Ambient audio** — a looping file, or the video's own track; muted by default, with a volume
   slider.
+- **Favourites** — star the skins you keep coming back to; pinned skins move to the top of the
+  picker and stay in a quick-pick row. Remembered in the browser like the other preferences.
 
 Five of those stay adjustable in the UI (dim, panel opacity, blur, radius, ambient volume) and are
 remembered per browser. Everything else comes from `skin.json`, so a designer can ship a look without

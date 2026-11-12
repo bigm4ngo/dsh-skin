@@ -39,6 +39,8 @@ export interface SkinEntry {
 
 export interface Prefs {
   skinId: string | null
+  /** Skin ids the user pinned, in the order they were pinned. */
+  favourites: string[]
   dim: number
   panelOpacity: number
   panelBlur: number
@@ -61,6 +63,7 @@ const LAYERS = ['bg-layer-1', 'bg-layer-2', 'bg-layer-3', 'bg-layer-4'] as const
 function defaults(): Prefs {
   return {
     skinId: null,
+    favourites: [],
     dim: 0.4,
     panelOpacity: 0.78,
     panelBlur: 0,
@@ -70,11 +73,29 @@ function defaults(): Prefs {
   }
 }
 
+/**
+ * Keep only non-empty string ids, in order, without duplicates. Stored prefs
+ * come from localStorage and may predate this field or have been edited by
+ * hand, so the shape is checked instead of trusted.
+ */
+function normalizeFavourites(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const item of value) {
+    if (typeof item !== 'string' || item === '' || seen.has(item)) continue
+    seen.add(item)
+    result.push(item)
+  }
+  return result
+}
+
 function readPrefs(): Prefs {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw === null) return defaults()
-    return { ...defaults(), ...(JSON.parse(raw) as Partial<Prefs>) }
+    const parsed = JSON.parse(raw) as Partial<Prefs>
+    return { ...defaults(), ...parsed, favourites: normalizeFavourites(parsed.favourites) }
   } catch {
     return defaults()
   }
@@ -212,6 +233,13 @@ export class SkinController {
       const response = await fetch(`${ROUTE}/index.json`, { credentials: 'same-origin' })
       if (!response.ok) throw new Error(`skin library responded ${response.status}`)
       const skins = (await response.json()) as SkinEntry[]
+      // A favourite whose folder was removed is dropped, but a library that
+      // failed to load never prunes anything (that branch is above).
+      const known = new Set(skins.map((skin) => skin.id))
+      const favourites = this.snapshot.prefs.favourites.filter((id) => known.has(id))
+      if (favourites.length !== this.snapshot.prefs.favourites.length) {
+        this.setPrefs({ favourites }, { reapply: false })
+      }
       this.emit({ status: 'ready', skins, error: null })
       try {
         this.apply()
@@ -259,11 +287,27 @@ export class SkinController {
     return this.snapshot.skins.find((skin) => skin.id === custom.skinId) ?? null
   }
 
-  setPrefs(patch: Partial<Prefs>): void {
+  /**
+   * Persist one preference patch and, unless it cannot affect the rendered
+   * skin, re-apply it. Favourite changes pass `reapply: false`: pinning a skin
+   * must not tear down and remount the current background (which restarts
+   * video and audio).
+   */
+  setPrefs(patch: Partial<Prefs>, options: { reapply?: boolean } = {}): void {
     const prefs = { ...this.snapshot.prefs, ...patch }
+    if (patch.favourites !== undefined) prefs.favourites = normalizeFavourites(patch.favourites)
     this.emit({ prefs })
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs)) } catch { /* private mode */ }
-    this.apply()
+    if (options.reapply !== false) this.apply()
+  }
+
+  /** Pin or unpin one skin without changing which skin is active. */
+  toggleFavourite(id: string): void {
+    const favourites = this.snapshot.prefs.favourites
+    const next = favourites.includes(id)
+      ? favourites.filter((entry) => entry !== id)
+      : [...favourites, id]
+    this.setPrefs({ favourites: next }, { reapply: false })
   }
 
   /** Effective values: skin manifest, overridden by the user's sliders. */

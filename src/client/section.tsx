@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import type { SkinController, Snapshot } from './state.ts'
+import type { SkinController, SkinEntry, Snapshot } from './state.ts'
 
 interface Props {
   controller: SkinController
@@ -19,16 +19,36 @@ function Row(props: {
   )
 }
 
+function skinName(skin: SkinEntry): string {
+  return skin.manifest.name ?? skin.id
+}
+
 export function SkinSection({ controller }: Props): React.ReactElement {
   const snapshot: Snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
   const prefs = snapshot.prefs
   const chosen = snapshot.skins.find((skin) => skin.id === prefs.skinId)
+  const byId = new Map(snapshot.skins.map((skin) => [skin.id, skin]))
+  // Pinned skins keep the order they were pinned in; a stored id whose folder
+  // is gone is already pruned when the library loads, and is ignored here.
+  const favouriteSkins = prefs.favourites
+    .map((id) => byId.get(id))
+    .filter((skin): skin is SkinEntry => skin !== undefined)
+  const otherSkins = snapshot.skins.filter((skin) => !prefs.favourites.includes(skin.id))
+  const isFavourite = chosen !== undefined
+    && prefs.skinId !== null
+    && prefs.favourites.includes(prefs.skinId)
+  const favouriteLabel = chosen === undefined
+    ? 'Select a skin to favourite it'
+    : isFavourite
+      ? `Remove ${skinName(chosen)} from favourites`
+      : `Add ${skinName(chosen)} to favourites`
 
   return (
     <div className="dsh-skin-section">
       <h2>Skins</h2>
       <p className="dsh-skin-hint">
         Skins are folders in <code>~/.config/dsh/skins/</code>. Drop one in, then pick it here.
+        Star the ones you like to keep them at the top of the list.
       </p>
 
       {snapshot.status === 'error' ? (
@@ -36,18 +56,78 @@ export function SkinSection({ controller }: Props): React.ReactElement {
       ) : null}
 
       <Row label="Skin" value={`${snapshot.skins.length} found`}>
-        <select
-          value={prefs.skinId ?? ''}
-          onChange={(event) => controller.setPrefs({ skinId: event.target.value === '' ? null : event.target.value })}
-        >
-          <option value="">None (default)</option>
-          {snapshot.skins.map((skin) => (
-            <option key={skin.id} value={skin.id}>
-              {skin.manifest.name ?? skin.id}
-            </option>
-          ))}
-        </select>
+        <div className="dsh-skin-picker">
+          <select
+            value={prefs.skinId ?? ''}
+            onChange={(event) => controller.setPrefs({ skinId: event.target.value === '' ? null : event.target.value })}
+          >
+            <option value="">None (default)</option>
+            {favouriteSkins.length > 0 ? (
+              <optgroup label="Favourites">
+                {favouriteSkins.map((skin) => (
+                  <option key={skin.id} value={skin.id}>
+                    {skinName(skin)}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
+            {otherSkins.length > 0 ? (
+              <optgroup label={favouriteSkins.length > 0 ? 'All skins' : 'Skins'}>
+                {otherSkins.map((skin) => (
+                  <option key={skin.id} value={skin.id}>
+                    {skinName(skin)}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
+          </select>
+          <button
+            type="button"
+            className="dsh-skin-star"
+            aria-pressed={isFavourite}
+            aria-label={favouriteLabel}
+            title={favouriteLabel}
+            disabled={chosen === undefined}
+            onClick={() => {
+              if (prefs.skinId !== null) controller.toggleFavourite(prefs.skinId)
+            }}
+          >
+            {isFavourite ? '★' : '☆'}
+          </button>
+        </div>
       </Row>
+
+      <div className="dsh-skin-favourites" aria-label="Favourite skins">
+        <span className="dsh-skin-favourites-label">Favourites</span>
+        {favouriteSkins.length === 0 ? (
+          <span className="dsh-skin-hint">None yet — pick a skin and press ☆.</span>
+        ) : (
+          <div className="dsh-skin-chips">
+            {favouriteSkins.map((skin) => (
+              <span className="dsh-skin-chip" key={skin.id}>
+                <button
+                  type="button"
+                  className="dsh-skin-chip-select"
+                  aria-pressed={prefs.skinId === skin.id}
+                  title={`Use ${skinName(skin)}`}
+                  onClick={() => controller.setPrefs({ skinId: skin.id })}
+                >
+                  {skinName(skin)}
+                </button>
+                <button
+                  type="button"
+                  className="dsh-skin-chip-remove"
+                  aria-label={`Remove ${skinName(skin)} from favourites`}
+                  title="Remove from favourites"
+                  onClick={() => controller.toggleFavourite(skin.id)}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
 
       {chosen?.error !== undefined && chosen?.error !== null ? <p className="dsh-skin-warn">{chosen.id}: {chosen.error}</p> : null}
       {chosen?.warnings?.map((warning) => (

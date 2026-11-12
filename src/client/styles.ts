@@ -148,6 +148,81 @@ body[data-dsh-skin='on'] [class*='brandName']::after {
 .dsh-skin-row > output { text-align: right; color: var(--dsw-alias-label-tertiary); font-variant-numeric: tabular-nums; }
 .dsh-skin-row input[type='range'] { width: 100%; }
 .dsh-skin-row select { width: 100%; }
+
+/* ---- skin favourites ----
+ * The select groups pinned skins first; the star toggles the active one and
+ * the chip row makes pinned skins reachable without opening the dropdown. */
+.dsh-skin-picker { display: flex; min-width: 0; align-items: center; gap: 8px; }
+.dsh-skin-picker select { flex: 1; min-width: 0; }
+.dsh-skin-star {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: .5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-sm, 8px);
+  background: var(--dsw-alias-button-elevated-fill);
+  color: var(--dsw-alias-label-primary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.dsh-skin-star:hover:not(:disabled) { background: var(--dsw-alias-button-floating-hover); }
+.dsh-skin-star[aria-pressed='true'] { color: var(--dsw-alias-state-warn-primary); }
+.dsh-skin-star:disabled { opacity: .5; cursor: default; }
+.dsh-skin-star:focus-visible,
+.dsh-skin-chip-select:focus-visible,
+.dsh-skin-chip-remove:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+.dsh-skin-favourites {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+.dsh-skin-favourites-label { color: var(--dsw-alias-label-secondary); }
+.dsh-skin-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.dsh-skin-chip {
+  display: inline-flex;
+  overflow: hidden;
+  border: .5px solid var(--dsw-alias-border-l3);
+  border-radius: 999px;
+  background: var(--dsw-alias-button-elevated-fill);
+  color: var(--dsw-alias-label-primary);
+}
+.dsh-skin-chip-select {
+  max-width: 200px;
+  overflow: hidden;
+  padding: 3px 4px 3px 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.dsh-skin-chip-select:hover { background: var(--dsw-alias-button-floating-hover); }
+.dsh-skin-chip-select[aria-pressed='true'] { font-weight: 600; }
+.dsh-skin-chip-remove {
+  padding: 3px 8px;
+  border: 0;
+  border-left: .5px solid var(--dsw-alias-border-l3);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  cursor: pointer;
+}
+.dsh-skin-chip-remove:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
 `
 
 /** Inject the stylesheet once per document. */
