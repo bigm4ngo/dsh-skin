@@ -80,9 +80,37 @@ function readPrefs(): Prefs {
   }
 }
 
+/**
+ * The shell publishes its theme in two places:
+ *
+ * - `<html data-ds-theme-source="light|dark|system">` is the user's *chosen*
+ *   preference. A fixed built-in theme (or a registered theme id, published as
+ *   its resolved scheme) appears as `light`/`dark`; `system` is used only when
+ *   nothing fixed is selected.
+ * - `<body data-ds-dark-theme>` is the *resolved* palette the token sheet is
+ *   currently painting.
+ *
+ * Only the `system` preference may defer to the operating system. Reading the
+ * OS preference first, as this used to, picked the dark skin whenever the OS
+ * preferred dark even though DSH was explicitly in light mode.
+ */
+function themeSource(): 'light' | 'dark' | 'system' | null {
+  const source = document.documentElement.getAttribute('data-ds-theme-source')
+  return source === 'light' || source === 'dark' || source === 'system' ? source : null
+}
+
 function isDark(): boolean {
   const root = document.documentElement
-  if (root.hasAttribute('data-ds-dark-theme') || document.body.hasAttribute('data-ds-dark-theme')) return true
+  const body = document.body
+  // The resolved palette is authoritative whenever the shell has published it.
+  if (body.hasAttribute('data-ds-dark-theme') || root.hasAttribute('data-ds-dark-theme')) return true
+
+  const source = themeSource()
+  if (source === 'light') return false
+  if (source === 'dark') return true
+
+  // `system` (or a pre-theme-presenter shell that published no source) is the
+  // only case where the operating-system preference decides.
   return window.matchMedia('(prefers-color-scheme: dark)').matches
 }
 
@@ -143,6 +171,12 @@ const CONTRAST_PAIRS: Array<[surface: string, text: string]> = [
   ['specific-menu', 'alias-label-secondary'],
   ['specific-input-major', 'alias-label-primary'],
   ['alias-button-primary-fill', 'alias-label-primary-foreground'],
+  // The New Session button and the composer's "+" are painted from these
+  // tokens but labelled from the general text token rather than a dedicated
+  // foreground, so they need the same guard as the primary button.
+  ['alias-button-elevated-fill', 'alias-label-primary'],
+  ['alias-button-floating-hover', 'alias-label-primary'],
+  ['specific-selector', 'alias-label-primary'],
 ]
 
 /** Minimum contrast below which the guard re-colours the text token. */
@@ -191,13 +225,31 @@ export class SkinController {
     }
   }
 
-  /** Re-apply when the shell flips between light and dark. */
+  /**
+   * Re-apply when the shell flips between light and dark.
+   *
+   * The theme presenter writes the resolved palette to `<body>` and the
+   * preference to `<html>`, and a flip can change either one, so both are
+   * observed. The operating-system listener is only relevant while DSH has no
+   * fixed preference; firing it in explicit light/dark mode would needlessly
+   * tear down and remount the background (restarting video and audio).
+   */
   private watchTheme(): void {
-    const target = document.documentElement
     const observer = new MutationObserver(() => { this.apply() })
-    observer.observe(target, { attributes: true, attributeFilter: ['data-ds-dark-theme', 'class'] })
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['data-ds-dark-theme'],
+    })
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-ds-theme-source', 'data-ds-dark-theme', 'class'],
+    })
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const onChange = (): void => { this.apply() }
+    const onChange = (): void => {
+      const source = themeSource()
+      if (source === 'light' || source === 'dark') return
+      this.apply()
+    }
     mq.addEventListener('change', onChange)
     this.disposers.push(() => { observer.disconnect(); mq.removeEventListener('change', onChange) })
   }

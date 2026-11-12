@@ -140,6 +140,10 @@ Two optional objects, `dark` and `light`. Each maps **token names to colours**; 
 `dark` applies only in dark mode, `light` only in light mode. Tokens you omit keep the built-in
 value, so a skin can change ten things or ninety.
 
+Mode follows DSH's own theme selection, not the operating system: an explicit Light or Dark
+preference in Settings decides which table applies, and only the System preference falls back to
+`prefers-color-scheme`. The skin is re-applied when that selection changes.
+
 Accepted colour syntax: `#rgb`, `#rrggbb`, `#rrggbbaa`, `rgb()`, `hsl()`, or `transparent`.
 
 #### The tokens worth knowing (safe set)
@@ -163,6 +167,7 @@ Lines and separation:
 Interaction:
 - `brand-primary` — accent, selection, primary actions.
 - `button-primary-fill`, `button-primary-hover`.
+- `button-elevated-fill`, `button-floating-hover` — the New Session button (rest / hover).
 - `button-ghost-active-fill`, `button-ghost-active-border`.
 - `button-tool-bar-fill`, `button-tool-bar-hover`.
 - `interactive-bg-hover`, `interactive-bg-active`.
@@ -190,6 +195,7 @@ Outside the `alias` namespace — write the full name, the plugin passes it thro
 - `specific-bubble` — the message bubble behind your own turns.
 - `specific-menu` — the popup menu surface.
 - `specific-input-major` — the composer field.
+- `specific-selector` — the composer's round "+" / tool button.
 - `elevation-panel`, `elevation-prominent`, `elevation-soft` — shadows (full shadow value, not just a colour).
 
 The full token list shipped by this harness has ~98 `--dsw-alias-*` / `--dsw-elevation-*` /
@@ -242,6 +248,8 @@ If a surface looks grey and you want to change it, this is the map. Names are wr
 | Input chips and image previews | `specific-input-major` | confirmed |
 | Hovered and selected rows (settings nav, sidebar) | `interactive-bg-hover`, `interactive-bg-active` | from the stylesheet |
 | Toolbar and ghost buttons ("New Session") | `button-tool-bar-fill`, `button-tool-bar-hover`, `button-ghost-active-fill` | inferred — check with the inspector |
+| New Session button (rest / hover) | `button-elevated-fill`, `button-floating-hover` + `label-primary` | confirmed against the shell's rule (macOS paints this button from literals, so the token only applies elsewhere) |
+| Composer attach / tool buttons ("+") | `specific-selector` + `label-primary` | confirmed against the shell's rule (hover uses `interactive-bg-hover-solid`) |
 | Primary buttons (Send, Sign in) | `button-primary-fill`, `button-primary-hover` + `label-primary-foreground` | confirmed |
 | Cards and panels | `bg-layer-1` … `bg-layer-4` | confirmed |
 
