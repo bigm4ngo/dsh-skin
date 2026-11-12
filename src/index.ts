@@ -55,8 +55,8 @@ const LOGO = ['.svg', '.png', '.webp']
 
 const LIMITS: Record<string, number> = {
   image: 20 * 1024 * 1024,
-  video: 100 * 1024 * 1024,
-  audio: 20 * 1024 * 1024,
+  video: 512 * 1024 * 1024,
+  audio: 128 * 1024 * 1024,
   logo: 512 * 1024,
 }
 

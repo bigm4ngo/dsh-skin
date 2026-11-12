@@ -61,7 +61,7 @@ The short version:
 ```
 
 Reload the page and it appears in the list. If something is wrong — a missing file, a value that
-isn't a colour, a 300 MB video — the skin is refused and the reason is printed under the dropdown
+isn't a colour, a 700 MB video — the skin is refused and the reason is printed under the dropdown
 instead of being applied silently.
 
 ![Skin applied](screenshots/applied.png)

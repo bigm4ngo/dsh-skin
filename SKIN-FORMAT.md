@@ -110,7 +110,7 @@ Only `name` is required. Everything else has a sane default.
   audio-led piece (§5).
 - `video.playbackRate` — `0.5`–`2.0`, default `1.0`.
 
-Media limits: images ≤ 20 MB, video ≤ 100 MB. Larger files are rejected with a message naming the
+Media limits: images ≤ 20 MB, video ≤ 512 MB. Larger files are rejected with a message naming the
 file. Prefer 1920×1080 or 2560×1440; a 16:9 source crops cleanly at every window size.
 
 ### `audio`
@@ -297,7 +297,7 @@ A video background *may* have an audio track. Two facts decide how it is used:
 Delivered audio rules:
 - Loop points must be seamless for `ambient.*`; a hard cut is audible every cycle.
 - Normalise to roughly −16 LUFS; the volume slider is a multiplier, not a leveller.
-- Format: `.mp3` or `.ogg` (`.wav` works but is large). ≤ 20 MB.
+- Format: `.mp3` or `.ogg` (`.wav` works but is large). ≤ 128 MB.
 - No sudden transients above −3 dBFS — this plays under conversation.
 
 ---
@@ -324,7 +324,7 @@ stays and the problem is named in one line:
 | `name` missing | `skin.json has no name` |
 | referenced file absent | `background file "x.mp4" not found` |
 | wrong extension | `"x.gif" is not a supported background` |
-| over the size limit | `"x.mp4" is 240 MB; the limit is 100 MB` |
+| over the size limit | `"x.mp4" is 640 MB; the limit is 512 MB` |
 | unreadable colour | `colors.dark["bg-base"] = "blurple" is not a colour` |
 | SVG with script | `logo.svg contained script and was sanitised` (warning, not fatal) |
 | font without licence | `font "x.woff2" needs a licence file` |
@@ -337,7 +337,7 @@ Warnings never block; errors do.
 
 1. Folder named after the skin, all lowercase with hyphens.
 2. `skin.json` with at least `name`.
-3. Background: 16:9, 1920×1080 or 2560×1440. If video: ≤ 100 MB, H.264 MP4, seamless loop, no
+3. Background: 16:9, 1920×1080 or 2560×1440. If video: ≤ 512 MB, H.264 MP4, seamless loop, no
    hard cut.
 4. Choose `dim` by looking at the result, not by theory: open a chat with long text and check
    contrast.
