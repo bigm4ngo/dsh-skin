@@ -9,6 +9,7 @@
 
 import { controller } from './runtime.ts'
 import { SkinSection } from './section.tsx'
+import { installSettingsShortcut } from './settingsShortcut.ts'
 import { installStyles } from './styles.ts'
 
 /** Client services required before registration. */
@@ -26,6 +27,7 @@ interface ClientContext {
 
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => installStyles(), 'dsh-skin: styles')
+  ctx.effect(() => installSettingsShortcut(), 'dsh-skin: settings shortcut')
   ctx.effect(() => {
     void controller.initialize()
     return () => { controller.dispose() }

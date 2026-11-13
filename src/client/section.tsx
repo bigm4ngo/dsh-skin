@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useSyncExternalStore } from 'react'
 import type { SkinController, SkinEntry, Snapshot } from './state.ts'
 
@@ -26,14 +27,20 @@ function skinName(skin: SkinEntry): string {
 export function SkinSection({ controller }: Props): React.ReactElement {
   const snapshot: Snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
   const prefs = snapshot.prefs
-  const chosen = snapshot.skins.find((skin) => skin.id === prefs.skinId)
+  const groups = controller.groups()
   const byId = new Map(snapshot.skins.map((skin) => [skin.id, skin]))
-  // Pinned skins keep the order they were pinned in; a stored id whose folder
-  // is gone is already pruned when the library loads, and is ignored here.
+  const inScope = (skin: SkinEntry): boolean => prefs.scope === null || skin.group === prefs.scope
+  const scopedSkins = snapshot.skins.filter(inScope)
+  const chosen = snapshot.skins.find((skin) => skin.id === prefs.skinId)
+  // Pinned skins keep the order they were pinned in; entries whose folder is
+  // gone are pruned when the library loads, and non-scoped ones stay hidden.
   const favouriteSkins = prefs.favourites
     .map((id) => byId.get(id))
-    .filter((skin): skin is SkinEntry => skin !== undefined)
-  const otherSkins = snapshot.skins.filter((skin) => !prefs.favourites.includes(skin.id))
+    .filter((skin): skin is SkinEntry => skin !== undefined && inScope(skin))
+  const otherSkins = scopedSkins.filter((skin) => !prefs.favourites.includes(skin.id))
+  const shortcutSkins = prefs.shortcuts
+    .map((id) => byId.get(id))
+    .filter((skin): skin is SkinEntry => skin !== undefined && favouriteSkins.some((entry) => entry.id === skin.id))
   const isFavourite = chosen !== undefined
     && prefs.skinId !== null
     && prefs.favourites.includes(prefs.skinId)
@@ -42,20 +49,54 @@ export function SkinSection({ controller }: Props): React.ReactElement {
     : isFavourite
       ? `Remove ${skinName(chosen)} from favourites`
       : `Add ${skinName(chosen)} to favourites`
+  const [folderStatus, setFolderStatus] = useState<string | null>(null)
+
+  const openFolder = (): void => {
+    setFolderStatus('Opening…')
+    void controller.openSkinsFolder()
+      .then((path) => setFolderStatus(path === '' ? 'Opened the skins folder.' : `Opened ${path}`))
+      .catch((error: unknown) => setFolderStatus(error instanceof Error ? error.message : String(error)))
+  }
 
   return (
     <div className="dsh-skin-section">
       <h2>Skins</h2>
       <p className="dsh-skin-hint">
-        Skins are folders in <code>~/.config/dsh/skins/</code>. Drop one in, then pick it here.
-        Star the ones you like to keep them at the top of the list.
+        Skins are folders in <code>~/.config/dsh/skins/</code>. Group them into subfolders to keep
+        collections together. Star the ones you like; add a <strong>+</strong> on a favourite to keep
+        it in the shortcut row.
       </p>
 
       {snapshot.status === 'error' ? (
         <p className="dsh-skin-warn">Skin library unavailable: {snapshot.error}</p>
       ) : null}
 
-      <Row label="Skin" value={`${snapshot.skins.length} found`}>
+      {groups.length > 0 ? (
+        <Row label="Folder" value={`${scopedSkins.length} skins`}>
+          <select
+            value={prefs.scope ?? ''}
+            onChange={(event) => controller.setScope(event.target.value === '' ? null : event.target.value)}
+          >
+            <option value="">All folders</option>
+            {groups.map((group) => (
+              <option key={group} value={group}>{group}</option>
+            ))}
+          </select>
+        </Row>
+      ) : null}
+
+      <Row label="Random skin" value={prefs.randomise ? 'each start' : 'off'}>
+        <input
+          type="checkbox"
+          checked={prefs.randomise}
+          onChange={(event) => controller.setRandomise(event.target.checked)}
+        />
+      </Row>
+      <p className="dsh-skin-hint">
+        Picks a random skin from the selected folder every time the app starts.
+      </p>
+
+      <Row label="Skin" value={`${scopedSkins.length} found`}>
         <div className="dsh-skin-picker">
           <select
             value={prefs.skinId ?? ''}
@@ -65,18 +106,14 @@ export function SkinSection({ controller }: Props): React.ReactElement {
             {favouriteSkins.length > 0 ? (
               <optgroup label="Favourites">
                 {favouriteSkins.map((skin) => (
-                  <option key={skin.id} value={skin.id}>
-                    {skinName(skin)}
-                  </option>
+                  <option key={skin.id} value={skin.id}>{skinName(skin)}</option>
                 ))}
               </optgroup>
             ) : null}
             {otherSkins.length > 0 ? (
               <optgroup label={favouriteSkins.length > 0 ? 'All skins' : 'Skins'}>
                 {otherSkins.map((skin) => (
-                  <option key={skin.id} value={skin.id}>
-                    {skinName(skin)}
-                  </option>
+                  <option key={skin.id} value={skin.id}>{skinName(skin)}</option>
                 ))}
               </optgroup>
             ) : null}
@@ -97,6 +134,38 @@ export function SkinSection({ controller }: Props): React.ReactElement {
         </div>
       </Row>
 
+      <div className="dsh-skin-favourites" aria-label="Shortcut skins">
+        <span className="dsh-skin-favourites-label">Shortcuts</span>
+        {shortcutSkins.length === 0 ? (
+          <span className="dsh-skin-hint">None yet — press + on a favourite below.</span>
+        ) : (
+          <div className="dsh-skin-chips">
+            {shortcutSkins.map((skin) => (
+              <span className="dsh-skin-chip dsh-skin-chip-shortcut" key={skin.id}>
+                <button
+                  type="button"
+                  className="dsh-skin-chip-select"
+                  aria-pressed={prefs.skinId === skin.id}
+                  title={`Use ${skinName(skin)}`}
+                  onClick={() => controller.setPrefs({ skinId: skin.id })}
+                >
+                  {skinName(skin)}
+                </button>
+                <button
+                  type="button"
+                  className="dsh-skin-chip-remove"
+                  aria-label={`Remove ${skinName(skin)} from shortcuts`}
+                  title="Remove from shortcuts"
+                  onClick={() => controller.removeShortcut(skin.id)}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="dsh-skin-favourites" aria-label="Favourite skins">
         <span className="dsh-skin-favourites-label">Favourites</span>
         {favouriteSkins.length === 0 ? (
@@ -114,6 +183,17 @@ export function SkinSection({ controller }: Props): React.ReactElement {
                 >
                   {skinName(skin)}
                 </button>
+                {prefs.shortcuts.includes(skin.id) ? null : (
+                  <button
+                    type="button"
+                    className="dsh-skin-chip-add"
+                    aria-label={`Add ${skinName(skin)} to shortcuts`}
+                    title="Add to shortcuts"
+                    onClick={() => controller.addShortcut(skin.id)}
+                  >
+                    +
+                  </button>
+                )}
                 <button
                   type="button"
                   className="dsh-skin-chip-remove"
@@ -127,6 +207,14 @@ export function SkinSection({ controller }: Props): React.ReactElement {
             ))}
           </div>
         )}
+      </div>
+
+      <div className="dsh-skin-row dsh-skin-actions">
+        <span />
+        <button type="button" className="dsh-skin-action" onClick={openFolder}>
+          Open skins folder
+        </button>
+        <span className="dsh-skin-status" role="status">{folderStatus ?? ''}</span>
       </div>
 
       {chosen?.error !== undefined && chosen?.error !== null ? <p className="dsh-skin-warn">{chosen.id}: {chosen.error}</p> : null}

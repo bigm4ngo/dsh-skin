@@ -1,6 +1,6 @@
 {
   "name": "dsh-skin",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Folder-based skins for DeepSeek Harness Web: image/video backgrounds, token colours, logo, ambient audio.",
   "keywords": [
     "dsh",

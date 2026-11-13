@@ -32,6 +32,8 @@ export interface SkinManifest {
     hideMark?: boolean
     /** Single-colour artwork replacing the running "deep diving" whale glyph. */
     deepDivingMark?: string
+    /** Replaces the running "Deep diving" status message; the animation stays. */
+    deepDivingText?: string
     name?: string
     hideName?: boolean
   }
@@ -41,6 +43,8 @@ export interface SkinManifest {
 
 export interface SkinEntry {
   id: string
+  /** One level of grouping folder under the skins root, when the skin lives in one. */
+  group?: string | null
   manifest: SkinManifest
   error?: string | null
   warnings?: string[]
@@ -48,8 +52,14 @@ export interface SkinEntry {
 
 export interface Prefs {
   skinId: string | null
+  /** Grouping folder the picker is scoped to; null means every folder. */
+  scope: string | null
+  /** Pick a random skin from the scope on every start. */
+  randomise: boolean
   /** Skin ids the user pinned, in the order they were pinned. */
   favourites: string[]
+  /** Favourites promoted to the quick-pick shortcut row, in order. */
+  shortcuts: string[]
   dim: number
   panelOpacity: number
   panelBlur: number
@@ -72,7 +82,10 @@ const LAYERS = ['bg-layer-1', 'bg-layer-2', 'bg-layer-3', 'bg-layer-4'] as const
 function defaults(): Prefs {
   return {
     skinId: null,
+    scope: null,
+    randomise: false,
     favourites: [],
+    shortcuts: [],
     dim: 0.4,
     panelOpacity: 0.78,
     panelBlur: 0,
@@ -87,7 +100,7 @@ function defaults(): Prefs {
  * come from localStorage and may predate this field or have been edited by
  * hand, so the shape is checked instead of trusted.
  */
-function normalizeFavourites(value: unknown): string[] {
+function normalizeIds(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   const seen = new Set<string>()
   const result: string[] = []
@@ -99,12 +112,23 @@ function normalizeFavourites(value: unknown): string[] {
   return result
 }
 
+function normalizeScope(value: unknown): string | null {
+  return typeof value === 'string' && value !== '' ? value : null
+}
+
 function readPrefs(): Prefs {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw === null) return defaults()
     const parsed = JSON.parse(raw) as Partial<Prefs>
-    return { ...defaults(), ...parsed, favourites: normalizeFavourites(parsed.favourites) }
+    return {
+      ...defaults(),
+      ...parsed,
+      scope: normalizeScope(parsed.scope),
+      randomise: parsed.randomise === true,
+      favourites: normalizeIds(parsed.favourites),
+      shortcuts: normalizeIds(parsed.shortcuts),
+    }
   } catch {
     return defaults()
   }
@@ -165,6 +189,13 @@ function tokenCssName(token: string): string {
  */
 function skinColour(colours: Record<string, string>, token: string): string | undefined {
   return colours[token] ?? colours[`alias-${token}`]
+}
+
+/** URL for one file of a skin; a grouped id keeps its slash as a path boundary. */
+function skinFileUrl(id: string, file: string): string {
+  const idPath = id.split('/').map(encodeURIComponent).join('/')
+  const filePath = file.split('/').map(encodeURIComponent).join('/')
+  return `${ROUTE}/${idPath}/${filePath}`
 }
 
 /** Resolve any CSS colour to rgb components by letting the browser parse it. */
@@ -228,6 +259,13 @@ export class SkinController {
   /** Identity of the mounted background (skin id + file); lets apply() keep it. */
   private bgKey: string | null = null
   private video: HTMLVideoElement | null = null
+  private divingText: string | null = null
+  private divingBodyObserver: MutationObserver | null = null
+  private divingHostObserver: MutationObserver | null = null
+  private divingHost: HTMLElement | null = null
+  private divingTextNodes: Array<{ node: Text; original: string }> = []
+  private divingElements: Array<{ el: HTMLElement; original: string }> = []
+  private divingAttrs: Array<{ el: HTMLElement; original: string | null }> = []
   private audio: HTMLAudioElement | null = null
   private appliedVars: string[] = []
   private scopeVars: Array<[HTMLElement, string]> = []
@@ -253,13 +291,29 @@ export class SkinController {
       const response = await fetch(`${ROUTE}/index.json`, { credentials: 'same-origin' })
       if (!response.ok) throw new Error(`skin library responded ${response.status}`)
       const skins = (await response.json()) as SkinEntry[]
-      // A favourite whose folder was removed is dropped, but a library that
-      // failed to load never prunes anything (that branch is above).
+      // A favourite/shortcut whose folder was removed is dropped, but a library
+      // that failed to load never prunes anything (that branch is above).
       const known = new Set(skins.map((skin) => skin.id))
-      const favourites = this.snapshot.prefs.favourites.filter((id) => known.has(id))
-      if (favourites.length !== this.snapshot.prefs.favourites.length) {
-        this.setPrefs({ favourites }, { reapply: false })
+      const groups = new Set(skins.flatMap((skin) => typeof skin.group === 'string' && skin.group !== '' ? [skin.group] : []))
+      const prefs = this.snapshot.prefs
+      const favourites = prefs.favourites.filter((id) => known.has(id))
+      const shortcuts = prefs.shortcuts.filter((id) => known.has(id) && favourites.includes(id))
+      const scope = prefs.scope !== null && groups.has(prefs.scope) ? prefs.scope : null
+      const scoped = scope === null ? skins : skins.filter((skin) => skin.group === scope)
+      let skinId = prefs.skinId !== null && known.has(prefs.skinId) ? prefs.skinId : null
+      // The chosen folder decides which skin a start may pick: a random one
+      // when "randomise" is on, otherwise the first one when the remembered
+      // skin lives outside the folder.
+      if (prefs.randomise) {
+        skinId = this.pickRandom(scoped) ?? skinId
+      } else if (scope !== null && (skinId === null || !scoped.some((skin) => skin.id === skinId))) {
+        skinId = scoped[0]?.id ?? null
       }
+      const changed = JSON.stringify(favourites) !== JSON.stringify(prefs.favourites)
+        || JSON.stringify(shortcuts) !== JSON.stringify(prefs.shortcuts)
+        || scope !== prefs.scope
+        || skinId !== prefs.skinId
+      if (changed) this.setPrefs({ favourites, shortcuts, scope, skinId }, { reapply: false })
       this.emit({ status: 'ready', skins, error: null })
       try {
         this.apply()
@@ -315,19 +369,88 @@ export class SkinController {
    */
   setPrefs(patch: Partial<Prefs>, options: { reapply?: boolean } = {}): void {
     const prefs = { ...this.snapshot.prefs, ...patch }
-    if (patch.favourites !== undefined) prefs.favourites = normalizeFavourites(patch.favourites)
+    if (patch.favourites !== undefined) prefs.favourites = normalizeIds(patch.favourites)
+    if (patch.shortcuts !== undefined) prefs.shortcuts = normalizeIds(patch.shortcuts)
+    if (patch.scope !== undefined) prefs.scope = normalizeScope(patch.scope)
     this.emit({ prefs })
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs)) } catch { /* private mode */ }
     if (options.reapply !== false) this.apply()
   }
 
+  /** Skins in the picker scope; every skin when no grouping folder is chosen. */
+  private scopedSkins(skins = this.snapshot.skins, scope = this.snapshot.prefs.scope): SkinEntry[] {
+    return scope === null ? skins : skins.filter((skin) => skin.group === scope)
+  }
+
+  private pickRandom(skins: SkinEntry[]): string | null {
+    if (skins.length === 0) return null
+    return skins[Math.floor(Math.random() * skins.length)].id
+  }
+
+  /** Grouping folders currently present in the library, sorted. */
+  groups(): string[] {
+    const groups = new Set<string>()
+    for (const skin of this.snapshot.skins) {
+      if (typeof skin.group === 'string' && skin.group !== '') groups.add(skin.group)
+    }
+    return [...groups].sort()
+  }
+
+  /** Pick the folder the picker, randomiser and favourites are scoped to. */
+  setScope(scope: string | null): void {
+    const nextScope = scope !== null && this.groups().includes(scope) ? scope : null
+    const candidates = this.scopedSkins(this.snapshot.skins, nextScope)
+    const current = this.snapshot.prefs.skinId
+    const skinId = current !== null && candidates.some((skin) => skin.id === current)
+      ? current
+      : this.snapshot.prefs.randomise
+        ? this.pickRandom(candidates)
+        : (candidates[0]?.id ?? null)
+    this.setPrefs({ scope: nextScope, skinId })
+  }
+
+  /** Toggle "random skin on start"; enabling also picks one right away. */
+  setRandomise(enabled: boolean): void {
+    const skinId = enabled
+      ? (this.pickRandom(this.scopedSkins()) ?? this.snapshot.prefs.skinId)
+      : this.snapshot.prefs.skinId
+    this.setPrefs({ randomise: enabled, skinId })
+  }
+
   /** Pin or unpin one skin without changing which skin is active. */
   toggleFavourite(id: string): void {
-    const favourites = this.snapshot.prefs.favourites
-    const next = favourites.includes(id)
-      ? favourites.filter((entry) => entry !== id)
-      : [...favourites, id]
-    this.setPrefs({ favourites: next }, { reapply: false })
+    const prefs = this.snapshot.prefs
+    const favourites = prefs.favourites.includes(id)
+      ? prefs.favourites.filter((entry) => entry !== id)
+      : [...prefs.favourites, id]
+    const shortcuts = prefs.favourites.includes(id)
+      ? prefs.shortcuts.filter((entry) => entry !== id)
+      : prefs.shortcuts
+    this.setPrefs({ favourites, shortcuts }, { reapply: false })
+  }
+
+  /** Promote one favourite to the shortcut row. */
+  addShortcut(id: string): void {
+    const prefs = this.snapshot.prefs
+    if (!prefs.favourites.includes(id) || prefs.shortcuts.includes(id)) return
+    this.setPrefs({ shortcuts: [...prefs.shortcuts, id] }, { reapply: false })
+  }
+
+  /** Remove one skin from the shortcut row; it stays a favourite. */
+  removeShortcut(id: string): void {
+    const prefs = this.snapshot.prefs
+    if (!prefs.shortcuts.includes(id)) return
+    this.setPrefs({ shortcuts: prefs.shortcuts.filter((entry) => entry !== id) }, { reapply: false })
+  }
+
+  /** Ask the host to reveal the skins directory in the OS file manager. */
+  async openSkinsFolder(): Promise<string> {
+    const response = await fetch(`${ROUTE}/open-folder`, { credentials: 'same-origin' })
+    const body = (await response.json().catch(() => ({}))) as { opened?: boolean; path?: string; error?: string }
+    if (!response.ok || body.opened !== true) {
+      throw new Error(typeof body.error === 'string' && body.error !== '' ? body.error : `skins folder request failed (${response.status})`)
+    }
+    return typeof body.path === 'string' ? body.path : ''
   }
 
   /** Effective values: skin manifest, overridden by the user's sliders. */
@@ -359,6 +482,7 @@ export class SkinController {
 
     if (entry === null || (entry.error !== undefined && entry.error !== null)) {
       this.teardownBackground()
+      this.stopDeepDivingPatch()
       document.body.dataset.dshSkin = 'off'
       delete document.body.dataset.dshSkinMark
       delete document.body.dataset.dshSkinRunning
@@ -484,7 +608,7 @@ export class SkinController {
     const branding = manifest.branding
     const markFile = branding?.mark !== undefined && branding.mark !== '' ? branding.mark : null
     if (markFile !== null) {
-      const url = `${ROUTE}/${encodeURIComponent(entry.id)}/${markFile.split('/').map(encodeURIComponent).join('/')}`
+      const url = skinFileUrl(entry.id, markFile)
       this.setVar('--dsh-skin-mark-url', `url("${url}")`)
       this.setVar('--dsh-skin-mark-size', `${branding?.markSize ?? 26}px`)
       document.body.dataset.dshSkinMark = 'skin'
@@ -495,7 +619,7 @@ export class SkinController {
     }
     const runningFile = branding?.deepDivingMark !== undefined && branding.deepDivingMark !== '' ? branding.deepDivingMark : null
     if (runningFile !== null) {
-      const url = `${ROUTE}/${encodeURIComponent(entry.id)}/${runningFile.split('/').map(encodeURIComponent).join('/')}`
+      const url = skinFileUrl(entry.id, runningFile)
       this.setVar('--dsh-skin-running-url', `url("${url}")`)
       document.body.dataset.dshSkinRunning = 'on'
     } else {
@@ -504,6 +628,11 @@ export class SkinController {
     if (branding?.name !== undefined && branding.name !== '') {
       this.setVar('--dsh-skin-name', `"${branding.name.replace(/"/g, '\\"')}"`)
     }
+    this.setDeepDivingText(
+      typeof branding?.deepDivingText === 'string' && branding.deepDivingText.trim() !== ''
+        ? branding.deepDivingText
+        : null,
+    )
 
     // ---- audio ----
     this.syncAudio(entry, prefs)
@@ -603,7 +732,7 @@ export class SkinController {
   private mountBackground(id: string, file: string, background: NonNullable<SkinManifest['background']>): void {
     const layer = document.createElement('div')
     layer.id = 'dsh-skin-bg'
-    const url = `${ROUTE}/${encodeURIComponent(id)}/${file.split('/').map(encodeURIComponent).join('/')}`
+    const url = skinFileUrl(id, file)
     const isVideo = /\.(mp4|webm)$/i.test(file)
 
     if (isVideo) {
@@ -677,7 +806,7 @@ export class SkinController {
       }
       return
     }
-    const url = `${ROUTE}/${encodeURIComponent(entry.id)}/${file.split('/').map(encodeURIComponent).join('/')}`
+    const url = skinFileUrl(entry.id, file)
     if (this.audio === null || this.audio.src !== new URL(url, location.href).href) {
       this.stopAudio()
       const el = new Audio(url)
@@ -693,7 +822,119 @@ export class SkinController {
     if (this.video !== null) this.video.muted = true
   }
 
+  /**
+   * Replace the running "Deep diving" status text. React owns those nodes and
+   * rewrites them on every duration tick, so the replacement runs from a
+   * MutationObserver: the text and shimmer attribute change, while the
+   * shimmer structure, animation and aria-live status region stay intact.
+   * `null` restores the shell's own text and stops observing.
+   */
+  private setDeepDivingText(text: string | null): void {
+    if (text === this.divingText) {
+      if (text !== null) this.patchDeepDiving()
+      return
+    }
+    if (text === null) {
+      this.stopDeepDivingPatch()
+      return
+    }
+    this.divingText = text
+    this.ensureDivingObservers()
+    this.patchDeepDiving()
+  }
+
+  private ensureDivingObservers(): void {
+    if (this.divingBodyObserver === null) {
+      this.divingBodyObserver = new MutationObserver(() => {
+        // The host observer covers its own subtree; this one only waits for a
+        // running host to appear (or reappear after a turn ends).
+        if (this.divingHost !== null && this.divingHost.isConnected) return
+        this.attachDivingHost()
+      })
+      this.divingBodyObserver.observe(document.body, { childList: true, subtree: true })
+    }
+    this.attachDivingHost()
+  }
+
+  private attachDivingHost(): void {
+    if (this.divingText === null) return
+    const host = document.querySelector<HTMLElement>('[data-chat-running]')
+    if (host === null || (host === this.divingHost && this.divingHostObserver !== null)) return
+    this.divingHostObserver?.disconnect()
+    this.divingHost = host
+    this.divingHostObserver = new MutationObserver(() => this.patchDeepDiving())
+    this.divingHostObserver.observe(host, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['data-shimmer-text'],
+    })
+    this.patchDeepDiving()
+  }
+
+  private patchDeepDiving(): void {
+    const text = this.divingText
+    if (text === null) return
+    const host = this.divingHost?.isConnected === true
+      ? this.divingHost
+      : document.querySelector<HTMLElement>('[data-chat-running]')
+    if (host === null) return
+    const spans = [...host.querySelectorAll<HTMLElement>('[class*="_runningText"] [class*="_text"]')]
+    const base = spans.find((el) => !el.hasAttribute('data-shimmer-text'))
+    if (base !== undefined) this.patchTextNode(base, text)
+    for (const el of spans) if (el.hasAttribute('data-shimmer-text')) this.patchShimmerAttribute(el, text)
+    const aria = host.querySelector<HTMLElement>('[role="status"]')
+    if (aria !== null) this.patchTextNode(aria, text)
+  }
+
+  private patchTextNode(el: HTMLElement, text: string): void {
+    const child = el.firstChild
+    if (child !== null && child.nodeType === Node.TEXT_NODE) {
+      const node = child as Text
+      if (node.nodeValue === text) return
+      const known = this.divingTextNodes.find((entry) => entry.node === node)
+      if (known === undefined) this.divingTextNodes.push({ node, original: node.nodeValue ?? '' })
+      else known.original = node.nodeValue ?? ''
+      node.nodeValue = text
+      return
+    }
+    const known = this.divingElements.find((entry) => entry.el === el)
+    if (known === undefined) this.divingElements.push({ el, original: el.textContent ?? '' })
+    else if (el.textContent !== text) known.original = el.textContent ?? ''
+    el.textContent = text
+  }
+
+  private patchShimmerAttribute(el: HTMLElement, text: string): void {
+    const current = el.getAttribute('data-shimmer-text')
+    if (current === text) return
+    const known = this.divingAttrs.find((entry) => entry.el === el)
+    if (known === undefined) this.divingAttrs.push({ el, original: current })
+    else known.original = current
+    el.setAttribute('data-shimmer-text', text)
+  }
+
+  private stopDeepDivingPatch(): void {
+    this.divingText = null
+    this.divingBodyObserver?.disconnect()
+    this.divingBodyObserver = null
+    this.divingHostObserver?.disconnect()
+    this.divingHostObserver = null
+    this.divingHost = null
+    for (const { node, original } of this.divingTextNodes) if (node.isConnected) node.nodeValue = original
+    for (const { el, original } of this.divingElements) if (el.isConnected) el.textContent = original
+    for (const { el, original } of this.divingAttrs) {
+      if (!el.isConnected) continue
+      if (original === null) el.removeAttribute('data-shimmer-text')
+      else el.setAttribute('data-shimmer-text', original)
+    }
+    this.divingTextNodes = []
+    this.divingElements = []
+    this.divingAttrs = []
+  }
+
   dispose(): void {
+    this.stopDeepDivingPatch()
     this.teardownBackground()
     this.stopAudio()
     this.clearVars()

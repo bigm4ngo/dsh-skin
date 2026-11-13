@@ -4,15 +4,18 @@
  * Serves the skins directory to the browser so a skin is a folder you drop in:
  *
  *   ~/.config/dsh/skins/<skin-name>/skin.json (+ logo/background/ambient files)
+ *   ~/.config/dsh/skins/<group>/<skin-name>/skin.json  (one folder level of groups)
  *
  * Routes (prefix `/dsh-skin`):
- *   GET /dsh-skin/index.json          → [{ id, manifest, files }]
- *   GET /dsh-skin/<id>/<file>         → the media file bytes
+ *   GET  /dsh-skin/index.json          → [{ id, group, manifest, error, warnings }]
+ *   GET  /dsh-skin/<id>/<file>         → the media file bytes (id may be `group/skin`)
+ *   GET  /dsh-skin/open-folder         → open the skins directory in the OS file manager
  *
  * Nothing is uploaded anywhere; the route is local to this harness process and
  * is behind the same authenticated session as the rest of the GUI.
  */
 
+import { spawn } from 'node:child_process'
 import { createReadStream } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
@@ -125,6 +128,14 @@ async function validate(
     const problem = await checkFile(dir, branding.deepDivingMark, LOGO, 'logo')
     if (problem !== null) return { error: problem, warnings }
   }
+  if (branding.deepDivingText !== undefined) {
+    if (typeof branding.deepDivingText !== 'string') {
+      return { error: 'branding.deepDivingText must be text', warnings }
+    }
+    if (branding.deepDivingText.length > 120) {
+      return { error: 'branding.deepDivingText is longer than 120 characters', warnings }
+    }
+  }
 
   const ui = (manifest.ui ?? {}) as Record<string, unknown>
   if (typeof ui.font === 'string' && FONT.includes(extname(ui.font).toLowerCase())) {
@@ -160,45 +171,76 @@ function json(body: unknown, status = 200): Response {
   })
 }
 
-/** Directory names are the skin ids; anything that is not a plain name is refused. */
-function validId(id: string): boolean {
-  return /^[a-z0-9][a-z0-9._-]{0,63}$/i.test(id) && !id.includes('..')
+/** One path segment of a skin id or folder group; no traversal. */
+function validSegment(name: string): boolean {
+  return /^[a-z0-9][a-z0-9._-]{0,63}$/i.test(name) && !name.includes('..')
 }
 
+/** A skin id is one segment, or `group/skin` under one grouping folder. */
+function validPath(id: string): boolean {
+  const parts = id.split('/')
+  return parts.length >= 1 && parts.length <= 2 && parts.every(validSegment)
+}
+
+/** Read and validate one skin folder, or return null when it is not a skin. */
+async function readSkin(root: string, id: string, group: string | null): Promise<unknown | null> {
+  if (!validPath(id)) return null
+  const dir = join(root, id)
+  try {
+    const info = await stat(dir)
+    if (!info.isDirectory()) return null
+    const raw = await readFile(join(dir, 'skin.json'), 'utf8')
+    const manifest = JSON.parse(raw) as Record<string, unknown>
+    if (typeof manifest.name !== 'string' || manifest.name.trim() === '') {
+      return { id, group, manifest, error: 'skin.json has no name', warnings: [] }
+    }
+    const { error, warnings } = await validate(dir, manifest)
+    manifests.set(id, manifest)
+    return { id, group, manifest, error, warnings }
+  } catch {
+    // A folder without a readable skin.json is simply not a skin.
+    return null
+  }
+}
+
+/**
+ * List skins from the root (ungrouped) and from one level of grouping folders.
+ * A root folder containing `skin.json` is a skin; otherwise its child folders
+ * that contain `skin.json` are skins in that group.
+ */
 async function listSkins(): Promise<unknown[]> {
   const root = skinsRoot()
-  let entries: string[]
+  let entries
   try {
-    entries = await readdir(root)
+    entries = await readdir(root, { withFileTypes: true })
   } catch {
     return []
   }
   const skins: unknown[] = []
-  for (const entry of entries.sort()) {
-    if (!validId(entry)) continue
-    const dir = join(root, entry)
-    try {
-      const info = await stat(dir)
-      if (!info.isDirectory()) continue
-      const raw = await readFile(join(dir, 'skin.json'), 'utf8')
-      const manifest = JSON.parse(raw) as Record<string, unknown>
-      if (typeof manifest.name !== 'string' || manifest.name.trim() === '') {
-        skins.push({ id: entry, manifest, error: 'skin.json has no name', warnings: [] })
-        continue
-      }
-      const { error, warnings } = await validate(dir, manifest)
-      manifests.set(entry, manifest)
-      skins.push({ id: entry, manifest, error, warnings })
-    } catch {
-      // A folder without a readable skin.json is simply not a skin.
+  for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+    if (!entry.isDirectory() || !validSegment(entry.name)) continue
+    const top = await readSkin(root, entry.name, null)
+    if (top !== null) {
+      skins.push(top)
       continue
+    }
+    let children
+    try {
+      children = await readdir(join(root, entry.name), { withFileTypes: true })
+    } catch {
+      continue
+    }
+    for (const child of children.sort((a, b) => a.name.localeCompare(b.name))) {
+      if (!child.isDirectory() || !validSegment(child.name)) continue
+      const skin = await readSkin(root, `${entry.name}/${child.name}`, entry.name)
+      if (skin !== null) skins.push(skin)
     }
   }
   return skins
 }
 
 async function serveFile(id: string, relPath: string, request: Request): Promise<Response> {
-  if (!validId(id)) return new Response('bad skin id', { status: 400 })
+  if (!validPath(id)) return new Response('bad skin id', { status: 400 })
   const root = resolve(skinsRoot())
   const target = resolve(root, id, relPath)
   if (!target.startsWith(root + sep)) return new Response('outside skins dir', { status: 403 })
@@ -257,17 +299,66 @@ async function serveFile(id: string, relPath: string, request: Request): Promise
   }
 }
 
+/** Open the skins directory in the OS file manager (local desktop action). */
+function openSkinsFolder(): void {
+  const dir = skinsRoot()
+  const override = process.env.DSH_SKIN_OPEN_COMMAND
+  const command = override !== undefined && override.trim() !== ''
+    ? override.trim()
+    : process.platform === 'darwin'
+      ? 'open'
+      : process.platform === 'win32'
+        ? 'explorer'
+        : 'xdg-open'
+  const child = spawn(command, [dir], { detached: true, stdio: 'ignore' })
+  child.on('error', () => { /* the route reports success/failure separately */ })
+  child.unref()
+}
+
+/** Resolve the skin path prefix inside a media request (`group/skin/file` or `skin/file`). */
+async function splitSkinRequest(root: string, segments: string[]): Promise<{ id: string; file: string } | null> {
+  for (const prefix of [2, 1]) {
+    if (segments.length <= prefix) continue
+    const id = segments.slice(0, prefix).join('/')
+    if (!validPath(id)) continue
+    try {
+      const info = await stat(join(root, id, 'skin.json'))
+      if (!info.isFile()) continue
+      return { id, file: segments.slice(prefix).join('/') }
+    } catch {
+      // not this depth
+    }
+  }
+  return null
+}
+
 async function handle(request: Request): Promise<Response> {
   const url = new URL(request.url)
   const rest = url.pathname.slice(ROUTE.length).replace(/^\/+/, '')
+  if (rest === 'open-folder') {
+    if (request.method !== 'GET') return new Response('method not allowed', { status: 405 })
+    try {
+      openSkinsFolder()
+      return json({ opened: true, path: skinsRoot() })
+    } catch (error) {
+      return json({ opened: false, error: error instanceof Error ? error.message : String(error) }, 500)
+    }
+  }
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return new Response('method not allowed', { status: 405 })
   }
   if (rest === '' || rest === 'index.json') return json(await listSkins())
 
-  const slash = rest.indexOf('/')
-  if (slash < 0) return new Response('not found', { status: 404 })
-  return serveFile(rest.slice(0, slash), decodeURIComponent(rest.slice(slash + 1)), request)
+  let segments: string[]
+  try {
+    segments = rest.split('/').map((segment) => decodeURIComponent(segment))
+  } catch {
+    return new Response('bad path encoding', { status: 400 })
+  }
+  const root = resolve(skinsRoot())
+  const resolved = await splitSkinRequest(root, segments)
+  if (resolved === null) return new Response('not found', { status: 404 })
+  return serveFile(resolved.id, resolved.file, request)
 }
 
 /**

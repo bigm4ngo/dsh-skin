@@ -1,7 +1,7 @@
 # DSH Skin Format — v1
 
 **What this is:** the file format for a DSH theme/skin. A skin is a folder. Drop the folder in,
-pick it in Settings → Appearance, and the harness changes — background (image or video), colours,
+pick it in Settings → Skins, and the harness changes — background (image or video), colours,
 panel translucency, typography, logo and product name.
 
 **Who this is for:** the person or agent *making* skins. You do not need to touch code, and you do
@@ -15,6 +15,8 @@ logged-in session.
 
 ## 1. Folder layout
 
+A skin is one folder:
+
 ```
 my-skin/
 ├── skin.json              required — the manifest
@@ -25,6 +27,25 @@ my-skin/
 └── ambient.mp3            optional — looping ambient audio
 ```
 
+Skins can also be grouped into **collections** — one extra folder level under the skins root. This
+is purely organisational: the Settings folder selector scopes the picker, the randomiser and the
+favourite/shortcut lists to one collection.
+
+```
+~/.config/dsh/skins/
+├── lavender-dream/                    ← ungrouped skin
+│   └── skin.json
+├── natural-view/                      ← collection folder (no skin.json here)
+│   ├── forest-note/
+│   │   └── skin.json
+│   └── wildflower/
+│       └── skin.json
+└── retro-vibe/
+    └── tape-deck/
+        └── skin.json
+```
+
+A collection folder must **not** contain its own `skin.json`; only one level of grouping is read.
 File names in `skin.json` are relative to the skin folder. Any name works as long as the manifest
 matches; the names above are the defaults when a field is omitted.
 
@@ -60,7 +81,9 @@ matches; the names above are the defaults when a field is omitted.
     "mark": "logo.svg",
     "markSize": 26,
     "name": "My Harness",
-    "hideName": false
+    "hideName": false,
+    "deepDivingMark": "logo.svg",
+    "deepDivingText": "Arranging pixels…"
   },
 
   "ui": {
@@ -95,7 +118,7 @@ Only `name` is required. Everything else has a sane default.
 ## 3. Fields
 
 ### Identity
-- `name` — string, required. Shown in the Appearance picker.
+- `name` — string, required. Shown in the skin picker.
 - `author`, `description` — optional strings.
 - `version` — integer, bump when you change the skin.
 
@@ -128,6 +151,9 @@ file. Prefer 1920×1080 or 2560×1440; a 16:9 source crops cleanly at every wind
   skin name should stand alone.
 - `deepDivingMark` — optional single-colour artwork replacing the whale glyph on the running
   “Deep diving” status line. Masked like `mark`, so it inherits the accent colour. SVG/PNG/WebP.
+- `deepDivingText` — optional text replacing the running “Deep diving for 1m 10s ···” message for
+  this skin. The shimmer animation and the accessible live status are kept; the shell's own text
+  comes back when the skin is disabled or another skin is selected. Max 120 characters.
 - `name` — the product name shown beside the mark. Plain text, any length.
 - `hideName` — `true` renders only the mark.
 
@@ -217,7 +243,8 @@ name it exactly; the safe set is what a designer can change without breaking con
 legibility.
 
 **Contrast rule:** body text on `bg-base`, `bg-layer-1` and `bg-layer-2` must stay at or above
-4.5:1 in both modes. The Appearance page reports a warning per pair it can measure.
+4.5:1 in both modes. The plugin measures a set of surface/text pairs after applying a skin and logs a
+console warning when one falls below 3:1.
 
 ---
 
@@ -308,8 +335,7 @@ Delivered audio rules:
 - To ship a font, place the file in the skin folder and name the file in `ui.font`. Accepted:
   `.woff2` (preferred), `.woff`, `.ttf`. Include the licence file — skins with a font and no
   licence are refused.
-- Weights 400 and 600 are used. A family without them is substituted automatically and the
-  Appearance page says so.
+- Weights 400 and 600 are used. A family without them is substituted automatically by the browser.
 
 ---
 
@@ -367,7 +393,7 @@ Folder contents: `skin.json` + `background.jpg`. Nothing else needed.
 
 ---
 
-## 11. Worked example — a video skin with branding
+## 11. Worked example — a video skin with branding (see `example_skins/winter-pines`)
 ```json
 {
   "name": "Harbour Night",
@@ -398,10 +424,17 @@ Folder contents: `skin.json` + `background.jpg`. Nothing else needed.
 
 ## 12. What appears in Settings → Skins
 
-The **Skins** page (Settings → Skins) is deliberately small. Everything in `skin.json` is optional, and only these controls
-are live:
+The **Skins** page (Settings → Skins) is deliberately small. Everything in `skin.json` is optional,
+and these controls are live:
 
-- **Skin** — one dropdown listing every folder found in the skins directory, plus "None (default)".
+- **Folder** — "All folders" or one collection folder; scopes the picker, randomiser and the
+  favourite/shortcut lists.
+- **Random skin** — pick a random skin from the selected folder on every start.
+- **Skin** — one dropdown listing the folders in scope, plus "None (default)". A star pins the
+  active skin; a **+** on a pinned skin adds it to the shortcut row.
+- **Shortcuts** — the small quick-pick row; click a name to use it, **×** to remove it (it stays a
+  favourite).
+- **Open skins folder** — reveals `~/.config/dsh/skins/` in the OS file manager.
 - **Background dim** — 0–90 %.
 - **Panel opacity** — 0–100 %.
 - **Panel blur** — 0–30 px.
@@ -410,10 +443,10 @@ are live:
   opts in, to the video's own track. Muted and at zero when no audio is configured.
 - **Loop audio when window is unfocused** — on/off (default on, matching `muteWhenUnfocused`).
 
-Those five knobs override the same values in `skin.json` and are remembered per browser, so a
-designer's `dim` is a starting point rather than a lock. Everything else — colours, fonts, logo,
-name, background file — comes from the skin and is changed by editing the folder, not by fiddling
-in the UI.
+The sliders override the same values in `skin.json` and are remembered per browser, so a designer's
+`dim` is a starting point rather than a lock. Everything else — colours, fonts, logo, name,
+background file — comes from the skin and is changed by editing the folder, not by fiddling in the
+UI. A small **✦** tab on the right edge of the app opens Settings → Skins directly.
 
 ---
 
@@ -423,12 +456,13 @@ Skins are folders on this machine:
 
 ```
 ~/.config/dsh/skins/<skin-name>/
+~/.config/dsh/skins/<collection>/<skin-name>/
 ```
 
 The host half serves that directory to the browser, so a skin is **dropped in as a folder and
 appears in the dropdown on refresh** — no upload step, no import dialog. The chosen skin, the
-knobs above and the current background are browser preferences (localStorage); nothing is uploaded
-to the harness server or any third party.
+collection scope, the randomise toggle, favourites, shortcuts and the sliders above are browser
+preferences (localStorage); nothing is uploaded to the harness server or any third party.
 
 Removing a folder removes it from the dropdown. Another browser, another port, or another machine
 sees the same folders but keeps its own choice of skin.

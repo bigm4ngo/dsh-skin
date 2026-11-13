@@ -254,6 +254,70 @@ body[data-dsh-skin-running='on'] [class*='_runningIcon']::before {
   cursor: pointer;
 }
 .dsh-skin-chip-remove:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+.dsh-skin-chip-add {
+  padding: 3px 8px;
+  border: 0;
+  border-left: .5px solid var(--dsw-alias-border-l3);
+  background: transparent;
+  color: var(--dsw-alias-state-business-primary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  cursor: pointer;
+}
+.dsh-skin-chip-add:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+.dsh-skin-chip-add:focus-visible { outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 2px; }
+.dsh-skin-chip-shortcut { background: var(--dsw-alias-bg-layer-3); }
+.dsh-skin-actions { grid-template-columns: 170px auto 1fr; }
+.dsh-skin-action {
+  padding: 5px 12px;
+  border: .5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-sm, 8px);
+  background: var(--dsw-alias-button-elevated-fill);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  cursor: pointer;
+}
+.dsh-skin-action:hover { background: var(--dsw-alias-button-floating-hover); }
+.dsh-skin-action:focus-visible { outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 2px; }
+.dsh-skin-status { overflow: hidden; color: var(--dsw-alias-label-tertiary); font-size: 12px; line-height: 18px; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- settings shortcut ----
+ * A subtle tab on the right edge that opens Settings -> Skins. */
+#dsh-skin-settings-fab {
+  position: fixed;
+  right: 0;
+  top: 46%;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 54px;
+  padding: 0;
+  border: .5px solid var(--dsw-alias-border-l3);
+  border-right: 0;
+  border-radius: 9px 0 0 9px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-2) 78%, transparent);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: .35;
+  transition: opacity .12s ease, color .12s ease;
+}
+#dsh-skin-settings-fab:hover,
+#dsh-skin-settings-fab:focus-visible {
+  color: var(--dsw-alias-label-primary);
+  opacity: .95;
+}
+#dsh-skin-settings-fab:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) { #dsh-skin-settings-fab { transition: none; } }
 `
 
 /** Inject the stylesheet once per document. */

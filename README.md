@@ -5,9 +5,11 @@
 Skins for **DeepSeek Harness Web** — the kind where you point it at a wallpaper and the whole
 interface sits on top of it.
 
-A skin is a folder. Drop it in `~/.config/dsh/skins/`, refresh, pick it in **Settings → Skins**.
-Image or video background, translucent panels, your own colours, your own logo and wordmark, optional
-ambient audio. No build step, no upload dialog, nothing leaves the machine.
+A skin is a folder. Drop it in `~/.config/dsh/skins/` — or group skins into collection folders under
+it — refresh, and pick it in **Settings → Skins**. Image or video background, translucent panels,
+your own colours, logo and wordmark, optional ambient audio, plus collections, favourites, shortcuts
+and an optional random skin on every start. No build step, no upload dialog, nothing leaves the
+machine.
 
 ![Skins settings page](screenshots/settings.png)
 
@@ -32,6 +34,19 @@ Restart `dsh web` and open **Settings → Skins**.
 
 Nothing is installed system-wide: `dsh plugin` puts the package in the profile's own `node_modules`,
 and `lib/` ships pre-built, so your machine needs no compiler or build step.
+
+## Example skins
+
+Two complete examples live in [`example_skins/`](example_skins):
+
+| Folder | Background |
+| --- | --- |
+| `lavender-dream` | still image |
+| `winter-pines` | video loop |
+
+Copy one into `~/.config/dsh/skins/`, or into a collection folder such as
+`~/.config/dsh/skins/natural-view/`, then pick it in **Settings → Skins**. Each folder is a normal
+skin: `skin.json` plus its media and logo.
 
 ## Make a skin
 
@@ -69,27 +84,36 @@ instead of being applied silently.
 ## What you can change
 
 - **Background** — image or video; `cover` / `contain` / `fill` / `repeat`; position; dimming; blur.
+- **Collections** — one extra folder level under `~/.config/dsh/skins/` groups skins (for example
+  `natural-view/` and `retro-vibe/`). The Folder selector scopes the picker, the randomiser and the
+  favourite/shortcut lists to one collection.
+- **Random skin on start** — picks a random skin from the selected folder every time the app starts.
+- **Favourites and shortcuts** — star any skin to pin it above the rest, then press **+** on a
+  favourite to keep it in the compact shortcut row. Both survive restarts and are stored per browser.
 - **Surfaces** — panel opacity, backdrop blur, corner radius, the message bubble, the composer field,
   the popup menu, and any `--dsw-*` colour token, separately for light and dark mode.
 - **Logo and wordmark** — your own SVG/PNG/WebP replaces the product mark; a plain string replaces the
-  wordmark. `hideMark` removes the product mark without a replacement, and `deepDivingMark` swaps the
-  whale on the running status line.
+  wordmark. `hideMark` removes the product mark without a replacement, `deepDivingMark` swaps the
+  whale on the running status line, and `deepDivingText` replaces its “Deep diving for …” message
+  while keeping the shimmer and screen-reader status.
 - **Accent-driven controls** — one `brand-primary` also themes the Chat/Trajectory tabs, the active
   workspace glyph, the send button and the “Deep diving” line, with readable send-button contrast.
 - **Ambient audio** — a looping file, or the video's own track; muted by default, with a volume
   slider.
-- **Favourites** — star the skins you keep coming back to; pinned skins move to the top of the
-  picker and stay in a quick-pick row. Remembered in the browser like the other preferences.
+- **Folder tools** — an **Open skins folder** button in Settings, and a subtle **✦** tab on the
+  right edge of the app that jumps straight to the skins section.
 
-Five of those stay adjustable in the UI (dim, panel opacity, blur, radius, ambient volume) and are
-remembered per browser. Everything else comes from `skin.json`, so a designer can ship a look without
-the user having to fiddle.
+The sliders (dim, panel opacity, blur, radius, ambient volume) and the browser preferences
+(collection, randomise, favourites, shortcuts) are remembered per browser. Everything else comes
+from `skin.json`, so a designer can ship a look without the user having to fiddle.
 
 ## Notes and limits
 
 - **Branding is applied to the existing brand seat**, not through the sidebar's brand slots: on
   0.2.2-rc.1 those slots do not accept an out-of-tree occupant. The shell's mark is hidden and the
   skin's logo is painted into the same box, so layout is unchanged.
+- One level of collection folders is read. A folder with its own `skin.json` is a skin; a folder
+  without one is treated as a collection of skins.
 - Class names in the shell are build-hashed, so the plugin finds the outer containers by geometry and
   by stable class suffixes rather than exact selectors. A future dsh release may move them; if a
   wallpaper stops showing through, that is where to look.
