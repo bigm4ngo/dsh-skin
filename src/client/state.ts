@@ -225,6 +225,8 @@ export class SkinController {
   private snapshot: Snapshot = { status: 'idle', error: null, skins: [], prefs: readPrefs() }
   private listeners = new Set<() => void>()
   private bg: HTMLDivElement | null = null
+  /** Identity of the mounted background (skin id + file); lets apply() keep it. */
+  private bgKey: string | null = null
   private video: HTMLVideoElement | null = null
   private audio: HTMLAudioElement | null = null
   private appliedVars: string[] = []
@@ -354,9 +356,9 @@ export class SkinController {
     const prefs = this.snapshot.prefs
     const entry = this.active()
     this.clearVars()
-    this.teardownBackground()
 
     if (entry === null || (entry.error !== undefined && entry.error !== null)) {
+      this.teardownBackground()
       document.body.dataset.dshSkin = 'off'
       delete document.body.dataset.dshSkinMark
       delete document.body.dataset.dshSkinRunning
@@ -376,8 +378,17 @@ export class SkinController {
     this.setVar('--dsh-skin-blur', `${prefs.panelBlur === 0 ? (background.blur ?? 0) : (background.blur ?? 0)}px`)
     this.setVar('--dsh-skin-dim', String(prefs.dim))
 
-    if (background.file !== undefined && background.file !== '') {
-      this.mountBackground(entry.id, background.file, background)
+    // Preferences re-run apply(); only a different skin/file may remount the
+    // background, because replacing the <video> would restart playback from
+    // zero. Same background: update its element in place.
+    const backgroundFile = background.file !== undefined && background.file !== '' ? background.file : null
+    if (backgroundFile === null) {
+      this.teardownBackground()
+    } else if (this.bgKey !== `${entry.id}:${backgroundFile}`) {
+      this.teardownBackground()
+      this.mountBackground(entry.id, backgroundFile, background)
+    } else {
+      this.syncBackground(background)
     }
     document.body.dataset.dshSkin = 'on'
 
@@ -622,7 +633,27 @@ export class SkinController {
     layer.appendChild(dimmer)
     document.body.insertBefore(layer, document.body.firstChild)
     this.bg = layer
+    this.bgKey = `${id}:${file}`
     this.mediaUrl = url
+  }
+
+  /**
+   * Keep an already-mounted background alive across preference/theme changes.
+   * Dim, blur, opacity and radius are CSS variables, so the element and its
+   * playback position must survive; only manifest-owned player settings are
+   * re-applied.
+   */
+  private syncBackground(background: NonNullable<SkinManifest['background']>): void {
+    if (this.video !== null) {
+      this.video.loop = background.video?.loop ?? true
+      this.video.playbackRate = background.video?.playbackRate ?? 1
+      return
+    }
+    const layer = this.bg
+    if (layer === null) return
+    layer.style.backgroundSize = background.fit === 'repeat' ? 'auto' : (background.fit ?? 'cover')
+    layer.style.backgroundRepeat = background.fit === 'repeat' ? 'repeat' : 'no-repeat'
+    layer.style.backgroundPosition = background.position ?? 'center'
   }
 
   private teardownBackground(): void {
@@ -630,6 +661,7 @@ export class SkinController {
     this.video = null
     this.bg?.remove()
     this.bg = null
+    this.bgKey = null
   }
 
   private syncAudio(entry: SkinEntry, prefs: Prefs): void {
