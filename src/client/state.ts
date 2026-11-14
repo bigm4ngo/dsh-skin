@@ -436,6 +436,17 @@ export class SkinController {
     this.setPrefs({ shortcuts: [...prefs.shortcuts, id] }, { reapply: false })
   }
 
+  /** Add or remove one skin as a shortcut; adding also pins it as a favourite. */
+  toggleShortcut(id: string): void {
+    const prefs = this.snapshot.prefs
+    if (prefs.shortcuts.includes(id)) {
+      this.removeShortcut(id)
+      return
+    }
+    const favourites = prefs.favourites.includes(id) ? prefs.favourites : [...prefs.favourites, id]
+    this.setPrefs({ favourites, shortcuts: [...prefs.shortcuts, id] }, { reapply: false })
+  }
+
   /** Remove one skin from the shortcut row; it stays a favourite. */
   removeShortcut(id: string): void {
     const prefs = this.snapshot.prefs

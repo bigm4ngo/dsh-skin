@@ -44,6 +44,14 @@ export function SkinSection({ controller }: Props): React.ReactElement {
   const isFavourite = chosen !== undefined
     && prefs.skinId !== null
     && prefs.favourites.includes(prefs.skinId)
+  const isShortcut = chosen !== undefined
+    && prefs.skinId !== null
+    && prefs.shortcuts.includes(prefs.skinId)
+  const shortcutLabel = chosen === undefined
+    ? 'Select a skin to shortcut it'
+    : isShortcut
+      ? `Remove ${skinName(chosen)} from shortcuts`
+      : `Add ${skinName(chosen)} to shortcuts`
   const favouriteLabel = chosen === undefined
     ? 'Select a skin to favourite it'
     : isFavourite
@@ -63,8 +71,8 @@ export function SkinSection({ controller }: Props): React.ReactElement {
       <h2>Skins</h2>
       <p className="dsh-skin-hint">
         Skins are folders in <code>~/.config/dsh/skins/</code>. Group them into subfolders to keep
-        collections together. Star the ones you like; add a <strong>+</strong> on a favourite to keep
-        it in the shortcut row.
+        collections together. Star a skin to pin it to the top of the picker; press <strong>+</strong>
+        beside the picker to keep it in the shortcut row.
       </p>
 
       {snapshot.status === 'error' ? (
@@ -131,13 +139,26 @@ export function SkinSection({ controller }: Props): React.ReactElement {
           >
             {isFavourite ? '★' : '☆'}
           </button>
+          <button
+            type="button"
+            className="dsh-skin-shortcut"
+            aria-pressed={isShortcut}
+            aria-label={shortcutLabel}
+            title={shortcutLabel}
+            disabled={chosen === undefined}
+            onClick={() => {
+              if (prefs.skinId !== null) controller.toggleShortcut(prefs.skinId)
+            }}
+          >
+            {isShortcut ? '✓' : '+'}
+          </button>
         </div>
       </Row>
 
       <div className="dsh-skin-favourites" aria-label="Shortcut skins">
         <span className="dsh-skin-favourites-label">Shortcuts</span>
         {shortcutSkins.length === 0 ? (
-          <span className="dsh-skin-hint">None yet — press + on a favourite below.</span>
+          <span className="dsh-skin-hint">None yet — press + beside the skin picker.</span>
         ) : (
           <div className="dsh-skin-chips">
             {shortcutSkins.map((skin) => (
@@ -157,49 +178,6 @@ export function SkinSection({ controller }: Props): React.ReactElement {
                   aria-label={`Remove ${skinName(skin)} from shortcuts`}
                   title="Remove from shortcuts"
                   onClick={() => controller.removeShortcut(skin.id)}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="dsh-skin-favourites" aria-label="Favourite skins">
-        <span className="dsh-skin-favourites-label">Favourites</span>
-        {favouriteSkins.length === 0 ? (
-          <span className="dsh-skin-hint">None yet — pick a skin and press ☆.</span>
-        ) : (
-          <div className="dsh-skin-chips">
-            {favouriteSkins.map((skin) => (
-              <span className="dsh-skin-chip" key={skin.id}>
-                <button
-                  type="button"
-                  className="dsh-skin-chip-select"
-                  aria-pressed={prefs.skinId === skin.id}
-                  title={`Use ${skinName(skin)}`}
-                  onClick={() => controller.setPrefs({ skinId: skin.id })}
-                >
-                  {skinName(skin)}
-                </button>
-                {prefs.shortcuts.includes(skin.id) ? null : (
-                  <button
-                    type="button"
-                    className="dsh-skin-chip-add"
-                    aria-label={`Add ${skinName(skin)} to shortcuts`}
-                    title="Add to shortcuts"
-                    onClick={() => controller.addShortcut(skin.id)}
-                  >
-                    +
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="dsh-skin-chip-remove"
-                  aria-label={`Remove ${skinName(skin)} from favourites`}
-                  title="Remove from favourites"
-                  onClick={() => controller.toggleFavourite(skin.id)}
                 >
                   ×
                 </button>

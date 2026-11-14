@@ -203,7 +203,26 @@ body[data-dsh-skin-running='on'] [class*='_runningIcon']::before {
 .dsh-skin-star:hover:not(:disabled) { background: var(--dsw-alias-button-floating-hover); }
 .dsh-skin-star[aria-pressed='true'] { color: var(--dsw-alias-state-warn-primary); }
 .dsh-skin-star:disabled { opacity: .5; cursor: default; }
+.dsh-skin-shortcut {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: .5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-sm, 8px);
+  background: var(--dsw-alias-button-elevated-fill);
+  color: var(--dsw-alias-label-primary);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.dsh-skin-shortcut:hover:not(:disabled) { background: var(--dsw-alias-button-floating-hover); }
+.dsh-skin-shortcut[aria-pressed='true'] { color: var(--dsw-alias-state-business-primary); }
+.dsh-skin-shortcut:disabled { opacity: .5; cursor: default; }
 .dsh-skin-star:focus-visible,
+.dsh-skin-shortcut:focus-visible,
 .dsh-skin-chip-select:focus-visible,
 .dsh-skin-chip-remove:focus-visible {
   outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
@@ -254,19 +273,6 @@ body[data-dsh-skin-running='on'] [class*='_runningIcon']::before {
   cursor: pointer;
 }
 .dsh-skin-chip-remove:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
-.dsh-skin-chip-add {
-  padding: 3px 8px;
-  border: 0;
-  border-left: .5px solid var(--dsw-alias-border-l3);
-  background: transparent;
-  color: var(--dsw-alias-state-business-primary);
-  font: inherit;
-  font-size: 13px;
-  line-height: 18px;
-  cursor: pointer;
-}
-.dsh-skin-chip-add:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
-.dsh-skin-chip-add:focus-visible { outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary)); outline-offset: 2px; }
 .dsh-skin-chip-shortcut { background: var(--dsw-alias-bg-layer-3); }
 .dsh-skin-actions { grid-template-columns: 170px auto 1fr; }
 .dsh-skin-action {

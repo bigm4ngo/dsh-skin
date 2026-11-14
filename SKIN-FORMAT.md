@@ -431,7 +431,7 @@ and these controls are live:
   favourite/shortcut lists.
 - **Random skin** — pick a random skin from the selected folder on every start.
 - **Skin** — one dropdown listing the folders in scope, plus "None (default)". A star pins the
-  active skin; a **+** on a pinned skin adds it to the shortcut row.
+  active skin; the **+** beside the picker adds or removes it from the shortcut row.
 - **Shortcuts** — the small quick-pick row; click a name to use it, **×** to remove it (it stays a
   favourite).
 - **Open skins folder** — reveals `~/.config/dsh/skins/` in the OS file manager.
