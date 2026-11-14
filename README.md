@@ -89,8 +89,9 @@ instead of being applied silently.
   favourite/shortcut lists to one collection.
 - **Random skin on start** — picks a random skin from the selected folder every time the app starts.
 - **Favourites and shortcuts** — star any skin to pin it above the rest, then press **+** beside the
-  skin picker to keep the active skin in the compact shortcut row. Both survive restarts and are
-  stored per browser.
+  skin picker to keep the active skin in the compact shortcut row. Shortcuts stay visible across
+  folders, even while the picker is scoped to one collection. Both survive restarts and are stored
+  per browser.
 - **Surfaces** — panel opacity, backdrop blur, corner radius, the message bubble, the composer field,
   the popup menu, and any `--dsw-*` colour token, separately for light and dark mode.
 - **Logo and wordmark** — your own SVG/PNG/WebP replaces the product mark; a plain string replaces the

@@ -427,13 +427,15 @@ Folder contents: `skin.json` + `background.jpg`. Nothing else needed.
 The **Skins** page (Settings → Skins) is deliberately small. Everything in `skin.json` is optional,
 and these controls are live:
 
-- **Folder** — "All folders" or one collection folder; scopes the picker, randomiser and the
-  favourite/shortcut lists.
+- **Folder** — "All folders" or one collection folder; scopes the picker, the randomiser and the
+  favourites group. Shortcuts stay visible across folders so a pinned quick pick is always one click
+  away.
 - **Random skin** — pick a random skin from the selected folder on every start.
 - **Skin** — one dropdown listing the folders in scope, plus "None (default)". A star pins the
   active skin; the **+** beside the picker adds or removes it from the shortcut row.
-- **Shortcuts** — the small quick-pick row; click a name to use it, **×** to remove it (it stays a
-  favourite).
+- **Shortcuts** — the small quick-pick row; it is not scoped to the selected folder. Click a name to
+  use it (the picker then shows that skin even when it lives in another collection), **×** to remove
+  it (it stays a favourite).
 - **Open skins folder** — reveals `~/.config/dsh/skins/` in the OS file manager.
 - **Background dim** — 0–90 %.
 - **Panel opacity** — 0–100 %.

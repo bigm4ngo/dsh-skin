@@ -38,9 +38,12 @@ export function SkinSection({ controller }: Props): React.ReactElement {
     .map((id) => byId.get(id))
     .filter((skin): skin is SkinEntry => skin !== undefined && inScope(skin))
   const otherSkins = scopedSkins.filter((skin) => !prefs.favourites.includes(skin.id))
+  // Shortcuts stay visible across folders; a shortcut selected from another
+  // collection remains reachable even while the picker is scoped elsewhere.
   const shortcutSkins = prefs.shortcuts
     .map((id) => byId.get(id))
-    .filter((skin): skin is SkinEntry => skin !== undefined && favouriteSkins.some((entry) => entry.id === skin.id))
+    .filter((skin): skin is SkinEntry => skin !== undefined && prefs.favourites.includes(skin.id))
+  const chosenOutsideScope = chosen !== undefined && !scopedSkins.some((skin) => skin.id === chosen.id)
   const isFavourite = chosen !== undefined
     && prefs.skinId !== null
     && prefs.favourites.includes(prefs.skinId)
@@ -111,6 +114,9 @@ export function SkinSection({ controller }: Props): React.ReactElement {
             onChange={(event) => controller.setPrefs({ skinId: event.target.value === '' ? null : event.target.value })}
           >
             <option value="">None (default)</option>
+            {chosenOutsideScope ? (
+              <option value={chosen.id}>{skinName(chosen)}</option>
+            ) : null}
             {favouriteSkins.length > 0 ? (
               <optgroup label="Favourites">
                 {favouriteSkins.map((skin) => (
