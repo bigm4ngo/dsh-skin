@@ -252,6 +252,11 @@ const CONTRAST_PAIRS: Array<[surface: string, text: string]> = [
 /** Minimum contrast below which the guard re-colours the text token. */
 const MIN_CONTRAST = 3
 
+const RADIUS_TOKENS = ['radius-xs', 'radius-sm', 'radius-md', 'radius-lg', 'radius-xl', 'radius-panel'] as const
+
+/** Preferences applyLive() can update without a full re-apply. */
+const LIVE_PREFS = new Set<keyof Prefs>(['dim', 'panelOpacity', 'panelBlur', 'radius', 'audioVolume', 'audioMuted'])
+
 export class SkinController {
   private snapshot: Snapshot = { status: 'idle', error: null, skins: [], prefs: readPrefs() }
   private listeners = new Set<() => void>()
@@ -272,6 +277,10 @@ export class SkinController {
   private baseLayerColors = new Map<string, string>()
   private mediaUrl: string | null = null
   private disposers: Array<() => void> = []
+  /** Skin id the last full apply() rendered; null when no skin is applied. */
+  private appliedId: string | null = null
+  /** Surface tokens given the translucency treatment: scope, property, base colour. */
+  private surfaceVars: Array<[HTMLElement, string, string]> = []
 
   getSnapshot = (): Snapshot => this.snapshot
 
@@ -286,6 +295,9 @@ export class SkinController {
   }
 
   async initialize(): Promise<void> {
+    const flush = (): void => { if (this.persistTimer !== null) this.flushPersist() }
+    window.addEventListener('pagehide', flush)
+    this.disposers.push(() => window.removeEventListener('pagehide', flush))
     this.emit({ status: 'loading', error: null })
     try {
       const response = await fetch(`${ROUTE}/index.json`, { credentials: 'same-origin' })
@@ -368,13 +380,60 @@ export class SkinController {
    * video and audio).
    */
   setPrefs(patch: Partial<Prefs>, options: { reapply?: boolean } = {}): void {
-    const prefs = { ...this.snapshot.prefs, ...patch }
+    const previous = this.snapshot.prefs
+    const prefs = { ...previous, ...patch }
     if (patch.favourites !== undefined) prefs.favourites = normalizeIds(patch.favourites)
     if (patch.shortcuts !== undefined) prefs.shortcuts = normalizeIds(patch.shortcuts)
     if (patch.scope !== undefined) prefs.scope = normalizeScope(patch.scope)
     this.emit({ prefs })
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs)) } catch { /* private mode */ }
-    if (options.reapply !== false) this.apply()
+    this.schedulePersist()
+    if (options.reapply === false) return
+    // Sliders and the audio switch fire on every input event. A full apply()
+    // walks computed styles, probes contrast and measures the chrome, each of
+    // which forces a synchronous style/layout pass over the whole app, so
+    // dragging a slider used to queue seconds of work. Those preferences only
+    // touch a handful of CSS variables or the audio element: update them in
+    // place instead.
+    const changed = (Object.keys(patch) as Array<keyof Prefs>).filter((key) => previous[key] !== prefs[key])
+    if (changed.length === 0) return
+    if (changed.every((key) => LIVE_PREFS.has(key)) && this.appliedId !== null && this.appliedId === prefs.skinId) {
+      this.applyLive(new Set(changed))
+      return
+    }
+    this.apply()
+  }
+
+  /** localStorage writes are synchronous; batch them while a slider moves. */
+  private persistTimer: ReturnType<typeof setTimeout> | null = null
+
+  private schedulePersist(): void {
+    if (this.persistTimer !== null) clearTimeout(this.persistTimer)
+    this.persistTimer = setTimeout(() => this.flushPersist(), 250)
+  }
+
+  private flushPersist(): void {
+    if (this.persistTimer !== null) { clearTimeout(this.persistTimer); this.persistTimer = null }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.snapshot.prefs)) } catch { /* private mode */ }
+  }
+
+  /** Cheap in-place update for preferences that are plain CSS variables or audio. */
+  private applyLive(changed: Set<keyof Prefs>): void {
+    const prefs = this.snapshot.prefs
+    const entry = this.active()
+    if (entry === null) return
+    const root = document.documentElement.style
+    if (changed.has('dim')) root.setProperty('--dsh-skin-dim', String(prefs.dim))
+    if (changed.has('radius')) {
+      for (const token of RADIUS_TOKENS) root.setProperty(`--dsw-${token}`, `${prefs.radius}px`)
+    }
+    if (changed.has('panelOpacity')) {
+      const alpha = Math.round(prefs.panelOpacity * 100)
+      for (const [scope, prop, base] of this.surfaceVars) {
+        scope.style.setProperty(prop, `color-mix(in srgb, ${base} ${alpha}%, transparent)`)
+      }
+      root.setProperty('--dsh-skin-panel-alpha', String(prefs.panelOpacity))
+    }
+    if (changed.has('audioVolume') || changed.has('audioMuted')) this.syncAudio(entry, prefs)
   }
 
   /** Skins in the picker scope; every skin when no grouping folder is chosen. */
@@ -490,6 +549,8 @@ export class SkinController {
     const prefs = this.snapshot.prefs
     const entry = this.active()
     this.clearVars()
+    this.appliedId = null
+    this.surfaceVars = []
 
     if (entry === null || (entry.error !== undefined && entry.error !== null)) {
       this.teardownBackground()
@@ -556,6 +617,7 @@ export class SkinController {
         if (base === '' || base === 'transparent' || base.startsWith('color-mix(')) continue
         this.baseLayerColors.set(key, base)
         this.setScopeVar(scope, prop, `color-mix(in srgb, ${base} ${alpha}%, transparent)`)
+        this.surfaceVars.push([scope, prop, base])
       }
     }
 
@@ -594,7 +656,7 @@ export class SkinController {
 
     // ---- radii ----
     const radius = prefs.radius
-    for (const token of ['radius-xs', 'radius-sm', 'radius-md', 'radius-lg', 'radius-xl', 'radius-panel']) {
+    for (const token of RADIUS_TOKENS) {
       this.setVar(`--dsw-${token}`, `${radius}px`)
     }
 
@@ -657,6 +719,7 @@ export class SkinController {
     // walk up from the sidebar and clear every ancestor that paints a colour:
     // those are chrome, never content cards.
     this.clearChromeBackdrop()
+    this.appliedId = entry.id
   }
 
   /**
@@ -945,6 +1008,9 @@ export class SkinController {
   }
 
   dispose(): void {
+    if (this.persistTimer !== null) this.flushPersist()
+    this.appliedId = null
+    this.surfaceVars = []
     this.stopDeepDivingPatch()
     this.teardownBackground()
     this.stopAudio()
