@@ -437,8 +437,8 @@ and these controls are live:
   use it (the picker then shows that skin even when it lives in another collection), **×** to remove
   it (it stays a favourite).
 - **Open skins folder** — reveals `~/.config/dsh/skins/` in the OS file manager.
-- **Background dim** — 0–90 %.
-- **Panel opacity** — 0–100 %.
+- **Background dim** — 0–90 %. Darkens the wallpaper wherever it shows, including behind the chat.
+- **Panel opacity** — 30–100 %. How solid the panels are (sidebar, composer, message bubbles, cards); the chat area itself stays clear.
 - **Panel blur** — 0–12 px frosted-glass blur of the wallpaper behind the sidebar and cards (composer).
 - **Corner radius** — 0–24 px.
 - **Ambient volume** — 0–100 %, with a mute toggle. It applies to `ambient.*` and, when a skin
