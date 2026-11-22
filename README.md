@@ -106,7 +106,11 @@ instead of being applied silently.
   right edge of the app that jumps straight to the skins section.
 
 The sliders (dim, panel opacity, blur, radius, ambient volume) and the browser preferences
-(collection, randomise, favourites, shortcuts) are remembered per browser. Everything else comes
+(collection, randomise, favourites, shortcuts) are remembered per browser. **Background dim** darkens
+the wallpaper everywhere, including behind the chat; **Panel opacity** only sets how solid the panels
+are (sidebar, composer, bubbles, cards), and **Panel blur** frosts the wallpaper behind them. Dim and
+volume update live while you drag; opacity, blur and radius restyle the whole app, so they apply the
+moment you pause or let go. Everything else comes
 from `skin.json`, so a designer can ship a look without the user having to fiddle.
 
 ## Notes and limits
