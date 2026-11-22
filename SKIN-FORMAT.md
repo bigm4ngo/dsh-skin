@@ -439,7 +439,7 @@ and these controls are live:
 - **Open skins folder** — reveals `~/.config/dsh/skins/` in the OS file manager.
 - **Background dim** — 0–90 %.
 - **Panel opacity** — 0–100 %.
-- **Panel blur** — 0–30 px.
+- **Panel blur** — 0–12 px frosted-glass blur of the wallpaper behind the sidebar and cards (composer).
 - **Corner radius** — 0–24 px.
 - **Ambient volume** — 0–100 %, with a mute toggle. It applies to `ambient.*` and, when a skin
   opts in, to the video's own track. Muted and at zero when no audio is configured.

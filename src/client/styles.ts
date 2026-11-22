@@ -55,6 +55,7 @@ body[data-dsh-skin='on'] [class*='sidebarCol'] {
     var(--dsh-skin-panel-tint, #0b1524) calc(var(--dsh-skin-panel-alpha, 0.72) * 100%),
     transparent
   ) !important;
+  backdrop-filter: var(--dsh-skin-panel-backdrop, none);
 }
 
 /* The sidebar column's own wrapper paints an opaque literal; a column is
@@ -69,6 +70,7 @@ body[data-dsh-skin='on'] [class*='_card'] {
     var(--dsh-skin-panel-tint, #0b1524) calc(var(--dsh-skin-panel-alpha, 0.72) * 100%),
     transparent
   ) !important;
+  backdrop-filter: var(--dsh-skin-panel-backdrop, none);
 }
 
 /* Dialogs and menus carry text that must stay readable over any wallpaper:

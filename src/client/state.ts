@@ -257,6 +257,19 @@ const RADIUS_TOKENS = ['radius-xs', 'radius-sm', 'radius-md', 'radius-lg', 'radi
 /** Preferences applyLive() can update without a full re-apply. */
 const LIVE_PREFS = new Set<keyof Prefs>(['dim', 'panelOpacity', 'panelBlur', 'radius', 'audioVolume', 'audioMuted'])
 
+/**
+ * Live preferences whose variables are inherited by the whole app. Changing one
+ * restyles every element (~120 ms with a long chat open), so while a slider
+ * moves they are committed once it pauses instead of on every input event.
+ */
+const DEFERRED_PREFS = new Set<keyof Prefs>(['panelOpacity', 'panelBlur', 'radius'])
+const DEFERRED_MS = 150
+
+/** `backdrop-filter` value for the panel-blur slider; `none` keeps panels uncomposited at 0. */
+function panelBackdrop(px: number): string {
+  return px > 0 ? `blur(${px}px)` : 'none'
+}
+
 export class SkinController {
   private snapshot: Snapshot = { status: 'idle', error: null, skins: [], prefs: readPrefs() }
   private listeners = new Set<() => void>()
@@ -421,8 +434,31 @@ export class SkinController {
     const prefs = this.snapshot.prefs
     const entry = this.active()
     if (entry === null) return
+    // Dim lives on the background layer, so only that layer restyles: 60 fps.
+    if (changed.has('dim')) this.syncLayerVars()
+    if (changed.has('audioVolume') || changed.has('audioMuted')) this.syncAudio(entry, prefs)
+    for (const key of changed) if (DEFERRED_PREFS.has(key)) this.deferred.add(key)
+    if (this.deferred.size === 0) return
+    if (this.deferredTimer !== null) clearTimeout(this.deferredTimer)
+    this.deferredTimer = setTimeout(() => this.flushDeferred(), DEFERRED_MS)
+  }
+
+  private deferred = new Set<keyof Prefs>()
+  private deferredTimer: ReturnType<typeof setTimeout> | null = null
+
+  private cancelDeferred(): void {
+    if (this.deferredTimer !== null) clearTimeout(this.deferredTimer)
+    this.deferredTimer = null
+    this.deferred.clear()
+  }
+
+  /** Commit the app-wide variables once the slider has paused. */
+  private flushDeferred(): void {
+    const changed = new Set(this.deferred)
+    this.cancelDeferred()
+    if (this.appliedId === null) return
+    const prefs = this.snapshot.prefs
     const root = document.documentElement.style
-    if (changed.has('dim')) root.setProperty('--dsh-skin-dim', String(prefs.dim))
     if (changed.has('radius')) {
       for (const token of RADIUS_TOKENS) root.setProperty(`--dsw-${token}`, `${prefs.radius}px`)
     }
@@ -433,7 +469,16 @@ export class SkinController {
       }
       root.setProperty('--dsh-skin-panel-alpha', String(prefs.panelOpacity))
     }
-    if (changed.has('audioVolume') || changed.has('audioMuted')) this.syncAudio(entry, prefs)
+    if (changed.has('panelBlur')) root.setProperty('--dsh-skin-panel-backdrop', panelBackdrop(prefs.panelBlur))
+  }
+
+  /** Variables only the background layer reads; set on the layer so nothing else restyles. */
+  private syncLayerVars(): void {
+    const layer = this.bg
+    const entry = this.active()
+    if (layer === null || entry === null) return
+    layer.style.setProperty('--dsh-skin-dim', String(this.snapshot.prefs.dim))
+    layer.style.setProperty('--dsh-skin-blur', `${entry.manifest.background?.blur ?? 0}px`)
   }
 
   /** Skins in the picker scope; every skin when no grouping folder is chosen. */
@@ -549,6 +594,7 @@ export class SkinController {
     const prefs = this.snapshot.prefs
     const entry = this.active()
     this.clearVars()
+    this.cancelDeferred()
     this.appliedId = null
     this.surfaceVars = []
 
@@ -571,8 +617,6 @@ export class SkinController {
     const position = background.position ?? 'center'
     this.setVar('--dsh-skin-fit', fit === 'repeat' ? 'auto' : fit)
     this.setVar('--dsh-skin-position', position)
-    this.setVar('--dsh-skin-blur', `${prefs.panelBlur === 0 ? (background.blur ?? 0) : (background.blur ?? 0)}px`)
-    this.setVar('--dsh-skin-dim', String(prefs.dim))
 
     // Preferences re-run apply(); only a different skin/file may remount the
     // background, because replacing the <video> would restart playback from
@@ -586,6 +630,7 @@ export class SkinController {
     } else {
       this.syncBackground(background)
     }
+    this.syncLayerVars()
     document.body.dataset.dshSkin = 'on'
 
     // ---- token colours ----
@@ -665,6 +710,7 @@ export class SkinController {
     const tint = colours['bg-layer-1'] ?? (mode === 'dark' ? '#0b1524' : '#ffffff')
     this.setVar('--dsh-skin-panel-tint', tint)
     this.setVar('--dsh-skin-panel-alpha', String(prefs.panelOpacity))
+    this.setVar('--dsh-skin-panel-backdrop', panelBackdrop(prefs.panelBlur))
 
     // ---- fonts ----
     if (ui.font !== undefined && ui.font !== '') this.setVar('--dsw-font-family', ui.font)
@@ -1009,6 +1055,7 @@ export class SkinController {
 
   dispose(): void {
     if (this.persistTimer !== null) this.flushPersist()
+    this.cancelDeferred()
     this.appliedId = null
     this.surfaceVars = []
     this.stopDeepDivingPatch()
