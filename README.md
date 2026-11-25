@@ -1,5 +1,7 @@
 # dsh-skin
 
+[![XERJ Corpus Hub contributor](https://hub.xerj.org/contributors/bigm4ngo/badge.svg)](https://hub.xerj.org/contributors/bigm4ngo)
+
 **English** · [简体中文](README.zh.md)
 
 Skins for **DeepSeek Harness Web** — the kind where you point it at a wallpaper and the whole
