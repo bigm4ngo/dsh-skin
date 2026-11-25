@@ -1,5 +1,7 @@
 # dsh-skin
 
+[![XERJ Corpus Hub contributor](https://hub.xerj.org/contributors/bigm4ngo/badge.svg)](https://hub.xerj.org/contributors/bigm4ngo)
+
 [English](README.md) · **简体中文**
 
 给 **DeepSeek Harness Web** 换皮肤：一张壁纸铺在底下，整个界面浮在上面。
